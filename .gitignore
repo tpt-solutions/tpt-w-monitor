@@ -1,0 +1,28 @@
+# Rust
+/target/
+**/target/
+Cargo.lock
+
+# Node / Vite / Svelte
+node_modules/
+dist/
+.vite/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*

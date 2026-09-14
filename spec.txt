@@ -1,0 +1,8 @@
+System Resource Dashboard & Optimizer (Process Hacker / System Informer Alternative)
+Concept: tpt-monitor – A beautiful, customizable system resource monitor.
+Tech Stack: Rust (for safe, fast system calls and process enumeration) + TypeScript (for a highly customizable, widget-based dashboard).
+Why it’s better: Task Manager is too basic; Process Hacker is powerful but intimidating. A modern alternative can provide a clean dashboard showing CPU/GPU/RAM/Disk/Network per-app, with "smart suggestions" (e.g., "This background process is using 20% CPU and can be safely suspended").
+
+Compatible on Windows, Linux and Archon. https://github.com/tpt-solutions/tpt-archon
+
+Linux & Archon Compatibility: Reads from /proc and sysfs on Linux. On Archon, it queries the tpt-archon-kernel’s built-in telemetry and capability scheduler directly, providing perfectly accurate, zero-overhead resource usage metrics per user-space application without polling.
