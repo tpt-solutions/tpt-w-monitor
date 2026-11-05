@@ -109,7 +109,7 @@ Decisions locked in for this roadmap:
 ## Phase 5 — Process Actions & Smart Suggestions Engine
 - [x] Wire kill/suspend/resume/priority/affinity actions from Phase 2/3 behind the `SystemMonitor` trait, with confirmation-required flag for destructive actions
 - [x] Curated critical-process list (never-suggest: `csrss.exe`, `wininit.exe`, `services.exe`, `systemd`, `kthreadd`, etc. per-OS) enforced in the suggestion engine, not just the UI
-- [ ] Heuristic rules: sustained CPU/RAM/disk usage on a backgrounded (no visible/foreground window) or user-idle process over a rolling window (user-idle condition pending)
+- [ ] Heuristic rules: sustained CPU/RAM/disk usage on a backgrounded (no visible/foreground window) or user-idle process over a rolling window (CPU rule done, including the user-idle condition on Windows via GetLastInputInfo with 5 minutes as idle; Linux has no idle source yet; RAM and disk rules not yet)
 - [x] Suggestion model: rationale, affected process, recommended action, confidence; per-process "don't suggest again" override
 - [x] Suggestion engine unit tests (fixture process histories → expected suggestions, critical-list never triggers)
 
