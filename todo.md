@@ -138,13 +138,13 @@ Decisions locked in for this roadmap:
 - [x] Click-through toggle (Windows `WS_EX_TRANSPARENT`; best-effort X11/Wayland equivalent on Linux) (uses Tauri's ignore-cursor-events; not yet tested on Windows or Linux)
 - [ ] Drag-to-reposition + resize, per-monitor placement persistence, "dock back to dashboard" action (drag, resize and dock back are in; positions are saved as absolute coordinates, not keyed per monitor yet)
 - [x] Independent per-overlay opacity setting (CSS opacity on the widget body, not window alpha)
-- [ ] System tray icon with live mini CPU/RAM history graph + quick context menu (open dashboard, top processes, exit) (CPU graph, top-process lines, open/click-through/quit are in; the RAM graph is not, and the menu is not yet exercised on a desktop)
+- [x] System tray icon with live mini CPU/RAM history graph + quick context menu (open dashboard, top processes, exit) (CPU and memory bars share the icon, with top-process lines and open, click-through and quit; not yet exercised on a desktop)
 
 ## Phase 9 — Smart Suggestions UI
 - [x] Suggestions feed/panel (sorted by impact), rationale display per suggestion
 - [ ] One-click apply, with an extra confirmation step for destructive actions (kill) (apply is one click; no destructive suggestions are generated yet, and the kill confirmation lives in the process table)
-- [ ] Dismiss / "don't suggest again for this process" controls (dismiss works; there is no UI yet to restore a dismissed process)
-- [ ] Safe/critical process list viewer + user override management (view only for critical list; opt-out per suggestion rule)
+- [x] Dismiss / "don't suggest again for this process" controls (dismiss and restore both work from the Suggestions widget)
+- [ ] Safe/critical process list viewer + user override management (view only for critical list; opt-out per suggestion rule) (read-only viewer is in the Suggestions widget; override management is not)
 
 ## Phase 10 — Archon Support (Design Only)
 - [x] `docs/archon-design.md`: design for querying `tpt-archon-kernel` built-in telemetry + capability scheduler directly for zero-overhead, poll-free per-app resource metrics
