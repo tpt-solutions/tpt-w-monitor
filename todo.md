@@ -95,9 +95,9 @@ Decisions locked in for this roadmap:
 - [x] Process enumeration + per-process CPU/RAM via `/proc/[pid]/stat`, `/proc/[pid]/status` (compiled for Linux and parser-tested; not yet run on a Linux host)
 - [x] Per-process disk I/O via `/proc/[pid]/io`
 - [ ] Per-process network attribution via `/proc/net/{tcp,udp}` + `/proc/[pid]/fd` inode matching (nethogs-style) (partial: whole-machine totals from /proc/net/dev are in, excluding loopback; per-process attribution is not)
-- [ ] Per-process GPU stats via DRM `fdinfo` (`/proc/[pid]/fdinfo/<gpu-fd>`, kernel 5.19+, driver-dependent) with system-wide sysfs fallback where unavailable
+- [x] Per-process GPU stats via DRM `fdinfo` (`/proc/[pid]/fdinfo/<gpu-fd>`, kernel 5.19+, driver-dependent) with system-wide sysfs fallback where unavailable (implemented: client-deduplicated engine busy time and VRAM from fdinfo, with unit tests; not yet run against a real DRM driver)
 - [x] Process actions: kill (`SIGKILL`/`SIGTERM`), suspend/resume (`SIGSTOP`/`SIGCONT`), priority (`setpriority`/renice), affinity (`sched_setaffinity`) (via libc; not yet run on a Linux host)
-- [ ] Document/implement root-launch elevation path (run via `pkexec`/`sudo`; polkit policy file for GUI launch)
+- [x] Document/implement root-launch elevation path (run via `pkexec`/`sudo`; polkit policy file for GUI launch) (documented in docs/linux-elevation.md; polkit policy in packaging/linux is well-formed but not installed or tested; the desktop launcher is not built)
 - [ ] Verify behavior across at least one major distro (X11 + Wayland)
 
 ## Phase 4 — Hardware Sensors (Temperature & Fan)
@@ -165,14 +165,14 @@ Decisions locked in for this roadmap:
 - [ ] Manual QA: Windows 10/11 (elevated + unelevated launch)
 - [ ] Manual QA: Linux (X11 + Wayland, at least one major distro; root and non-root launch)
 - [ ] Stress test: process list + graphs responsiveness with hundreds/thousands of processes (e.g. many browser tabs)
-- [ ] Security review: elevated-process attack surface (IPC command validation, no arbitrary code exec via overlay/window creation), critical-process list cannot be bypassed to suggest suspending core OS processes
+- [x] Security review: elevated-process attack surface (IPC command validation, no arbitrary code exec via overlay/window creation), critical-process list cannot be bypassed to suggest suspending core OS processes (docs/security-review.md: findings 1 and 3 fixed, elevation trade-off recorded; re-run before each release)
 
 ## Phase 13 — Release v1
-- [ ] Finalize versioning scheme (SemVer) and changelog process
-- [ ] Windows installer (MSI/NSIS via Tauri bundler) with UAC manifest embedded, code-signing decision
+- [x] Finalize versioning scheme (SemVer) and changelog process (docs/versioning.md and CHANGELOG.md; the release script that checks the three version strings is not written yet)
+- [ ] Windows installer (MSI/NSIS via Tauri bundler) with UAC manifest embedded, code-signing decision (manifest and bundle settings exist in src-tauri/tauri.conf.json; no installer built yet)
 - [ ] Linux packaging (.deb/.rpm/AppImage via Tauri bundler), documented elevation launch path (polkit/pkexec)
 - [ ] Publish LICENSE files + notices in release artifacts
-- [ ] User-facing docs (install guide, widget/overlay guide, suggestions safety explainer)
+- [x] User-facing docs (install guide, widget/overlay guide, suggestions safety explainer) (docs/user-guide.md covers install, widgets, overlays, suggestions and their safety; the installers themselves are not built)
 - [ ] Tag v1.0.0 release, publish to GitHub (tpt-solutions org)
 - [ ] Post-release triage process for bug reports
 
