@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Copyright (c) 2026 TPT Solutions -->
+<policyconfig>
+  <vendor>TPT Solutions</vendor>
+  <vendor_url>https://github.com/tpt-solutions/tpt-monitor</vendor_url>
+
+  <action id="com.tptsolutions.tptmonitor.run">
+    <description>Run tpt-monitor with administrator rights</description>
+    <message>Authentication is required to monitor and manage all processes</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <!-- Only this binary can be run under this action. -->
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/tpt-monitor</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+</policyconfig>
