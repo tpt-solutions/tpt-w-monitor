@@ -10,13 +10,25 @@ use std::collections::HashSet;
 use std::ffi::c_void;
 use std::mem::size_of;
 
+use crate::net::TcpRow;
 use tpt_monitor_core::{MonitorError, Pid};
 use windows_sys::Win32::Foundation::{
     CloseHandle, ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER, FILETIME, GetLastError, HANDLE,
     HWND, INVALID_HANDLE_VALUE, LPARAM,
 };
+use windows_sys::Win32::NetworkManagement::IpHelper::{
+    GetExtendedTcpTable, GetPerTcpConnectionEStats, MIB_TCPROW_LH, SetPerTcpConnectionEStats,
+    TCP_ESTATS_DATA_ROD_v0, TCP_ESTATS_DATA_RW_v0, TCP_TABLE_OWNER_PID_ALL,
+    TcpConnectionEstatsData,
+};
+use windows_sys::Win32::Networking::WinSock::AF_INET;
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
+};
+use windows_sys::Win32::System::Performance::{
+    PDH_CSTATUS_NEW_DATA, PDH_CSTATUS_VALID_DATA, PDH_FMT_COUNTERVALUE_ITEM_W, PDH_FMT_DOUBLE,
+    PDH_HCOUNTER, PDH_HQUERY, PDH_MORE_DATA, PdhAddEnglishCounterW, PdhCloseQuery,
+    PdhCollectQueryData, PdhGetFormattedCounterArrayW, PdhOpenQueryW,
 };
 use windows_sys::Win32::System::ProcessStatus::{
     K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX,
@@ -342,3 +354,244 @@ pub const ACCESS_TERMINATE: u32 = PROCESS_TERMINATE;
 pub const ACCESS_SUSPEND_RESUME: u32 = PROCESS_SUSPEND_RESUME;
 /// See [`ACCESS_TERMINATE`].
 pub const ACCESS_SET_INFORMATION: u32 = PROCESS_SET_INFORMATION;
+
+/// `ERROR_INSUFFICIENT_BUFFER`: the table grew between the size query and the fetch.
+const ERROR_INSUFFICIENT_BUFFER: u32 = 122;
+
+/// The raw IPv4 owner-PID TCP table, as `GetExtendedTcpTable` returns it.
+pub fn tcp_owner_table() -> Result<Vec<u8>, MonitorError> {
+    let mut size: u32 = 0;
+    // SAFETY: a null buffer with size 0 asks the API for the size it needs.
+    let rc = unsafe {
+        GetExtendedTcpTable(
+            std::ptr::null_mut(),
+            &mut size,
+            0,
+            u32::from(AF_INET),
+            TCP_TABLE_OWNER_PID_ALL,
+            0,
+        )
+    };
+    if rc != ERROR_INSUFFICIENT_BUFFER && rc != 0 {
+        return Err(MonitorError::Os(format!("GetExtendedTcpTable size query: {rc}")));
+    }
+    // The table can grow between calls, so retry a few times before giving up.
+    for _ in 0..3 {
+        let mut buf = vec![0u8; size as usize];
+        // SAFETY: `buf` is `size` bytes long, and the API writes at most `size` bytes.
+        let rc = unsafe {
+            GetExtendedTcpTable(
+                buf.as_mut_ptr().cast(),
+                &mut size,
+                0,
+                u32::from(AF_INET),
+                TCP_TABLE_OWNER_PID_ALL,
+                0,
+            )
+        };
+        if rc == 0 {
+            buf.truncate(size as usize);
+            return Ok(buf);
+        }
+        if rc != ERROR_INSUFFICIENT_BUFFER {
+            return Err(MonitorError::Os(format!("GetExtendedTcpTable: {rc}")));
+        }
+    }
+    Err(MonitorError::Os("TCP table kept growing".into()))
+}
+
+fn to_lh(row: &TcpRow) -> MIB_TCPROW_LH {
+    let mut lh = MIB_TCPROW_LH::default();
+    lh.Anonymous.dwState = row.state;
+    lh.dwLocalAddr = row.local_addr;
+    lh.dwLocalPort = u32::from(row.local_port);
+    lh.dwRemoteAddr = row.remote_addr;
+    lh.dwRemotePort = u32::from(row.remote_port);
+    lh
+}
+
+/// Turns on byte-counter collection for one connection. Requires elevation; without it
+/// the call fails with access denied and the caller reports traffic as unavailable.
+pub fn enable_estats(row: &TcpRow) -> Result<(), MonitorError> {
+    let lh = to_lh(row);
+    let rw = TCP_ESTATS_DATA_RW_v0 { EnableCollection: true };
+    // SAFETY: `lh` and `rw` are valid for the call; the sizes match the structs passed.
+    let rc = unsafe {
+        SetPerTcpConnectionEStats(
+            &lh,
+            TcpConnectionEstatsData,
+            (&rw as *const TCP_ESTATS_DATA_RW_v0).cast(),
+            0,
+            size_of::<TCP_ESTATS_DATA_RW_v0>() as u32,
+            0,
+        )
+    };
+    if rc == 0 {
+        Ok(())
+    } else if rc == ERROR_ACCESS_DENIED {
+        Err(MonitorError::PermissionDenied(Pid(row.pid)))
+    } else {
+        Err(MonitorError::Os(format!("SetPerTcpConnectionEStats: {rc}")))
+    }
+}
+
+/// Cumulative `(bytes_received, bytes_sent)` for one connection, once collection is on.
+pub fn estats_counters(row: &TcpRow) -> Option<(u64, u64)> {
+    let lh = to_lh(row);
+    let mut rod = TCP_ESTATS_DATA_ROD_v0::default();
+    // SAFETY: `rod` is a valid out-buffer of the size passed; the read-write and
+    // read-only-state arguments are null with size 0, which the API allows for a
+    // read-only query.
+    let rc = unsafe {
+        GetPerTcpConnectionEStats(
+            &lh,
+            TcpConnectionEstatsData,
+            std::ptr::null_mut(),
+            0,
+            0,
+            std::ptr::null_mut(),
+            0,
+            0,
+            (&mut rod as *mut TCP_ESTATS_DATA_ROD_v0).cast(),
+            0,
+            size_of::<TCP_ESTATS_DATA_ROD_v0>() as u32,
+        )
+    };
+    (rc == 0).then_some((rod.DataBytesIn, rod.DataBytesOut))
+}
+
+/// `(instance name, value)` pairs from a wildcard PDH counter.
+pub type CounterItems = Vec<(String, f64)>;
+
+/// The GPU engine and dedicated-memory counters, opened once and sampled each interval.
+pub struct GpuCounters {
+    query: PDH_HQUERY,
+    engine: PDH_HCOUNTER,
+    memory: PDH_HCOUNTER,
+}
+
+// SAFETY: PDH query handles are plain pointers with no thread affinity. The struct is
+// only used through `&mut self`, so there is never concurrent access to the query.
+unsafe impl Send for GpuCounters {}
+
+impl Drop for GpuCounters {
+    fn drop(&mut self) {
+        // SAFETY: the query handle was opened by PdhOpenQueryW and is closed once here.
+        unsafe {
+            PdhCloseQuery(self.query);
+        }
+    }
+}
+
+fn wide_nul(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+fn add_english_counter(query: PDH_HQUERY, path: &str) -> Result<PDH_HCOUNTER, MonitorError> {
+    let mut counter: PDH_HCOUNTER = std::ptr::null_mut();
+    let path = wide_nul(path);
+    // SAFETY: `path` is a valid NUL-terminated wide string; `counter` is a valid out-slot.
+    let rc = unsafe { PdhAddEnglishCounterW(query, path.as_ptr(), 0, &mut counter) };
+    if rc != 0 || counter.is_null() {
+        return Err(MonitorError::Unsupported("GPU performance counters"));
+    }
+    Ok(counter)
+}
+
+/// Opens the GPU engine and dedicated-memory counters. Machines without a WDDM GPU
+/// driver lack these counters and report `Unsupported`.
+pub fn open_gpu_counters() -> Result<GpuCounters, MonitorError> {
+    let mut query: PDH_HQUERY = std::ptr::null_mut();
+    // SAFETY: a null data source and zero user data are the documented defaults.
+    let rc = unsafe { PdhOpenQueryW(std::ptr::null(), 0, &mut query) };
+    if rc != 0 {
+        return Err(MonitorError::Unsupported("GPU performance counters"));
+    }
+    // Owning the query from here means any failure below closes it through Drop.
+    let mut gpu = GpuCounters { query, engine: std::ptr::null_mut(), memory: std::ptr::null_mut() };
+    gpu.engine = add_english_counter(query, r"\GPU Engine(*)\Utilization Percentage")?;
+    gpu.memory = add_english_counter(query, r"\GPU Process Memory(*)\Dedicated Usage")?;
+    Ok(gpu)
+}
+
+impl GpuCounters {
+    /// Collects one sample. Returns `(engine_items, memory_items)` as
+    /// `(instance name, value)` pairs, or `None` if the collection failed.
+    pub fn sample(&mut self) -> Option<(CounterItems, CounterItems)> {
+        // SAFETY: the query handle is valid for the life of `self`.
+        if unsafe { PdhCollectQueryData(self.query) } != 0 {
+            return None;
+        }
+        Some((formatted_items(self.engine)?, formatted_items(self.memory)?))
+    }
+}
+
+/// Reads every instance of a wildcard counter as doubles, skipping invalid values.
+fn formatted_items(counter: PDH_HCOUNTER) -> Option<CounterItems> {
+    let mut size: u32 = 0;
+    let mut count: u32 = 0;
+    // SAFETY: a null buffer asks for the required size.
+    let rc = unsafe {
+        PdhGetFormattedCounterArrayW(
+            counter,
+            PDH_FMT_DOUBLE,
+            &mut size,
+            &mut count,
+            std::ptr::null_mut(),
+        )
+    };
+    if rc == 0 && size == 0 {
+        return Some(Vec::new());
+    }
+    if rc != PDH_MORE_DATA {
+        return None;
+    }
+    // The item array holds pointers, so the buffer must be 8-byte aligned: use u64 words.
+    let mut buf = vec![0u64; (size as usize).div_ceil(8).max(1)];
+    // SAFETY: `buf` provides `size` writable bytes, 8-byte aligned as the items require.
+    let rc = unsafe {
+        PdhGetFormattedCounterArrayW(
+            counter,
+            PDH_FMT_DOUBLE,
+            &mut size,
+            &mut count,
+            buf.as_mut_ptr().cast(),
+        )
+    };
+    if rc != 0 {
+        return None;
+    }
+    // SAFETY: on success PDH wrote `count` item records at the start of `buf`; their name
+    // pointers refer into the same buffer, which stays alive until this function returns.
+    let items = unsafe {
+        std::slice::from_raw_parts(
+            buf.as_ptr().cast::<PDH_FMT_COUNTERVALUE_ITEM_W>(),
+            count as usize,
+        )
+    };
+    let mut out = Vec::with_capacity(items.len());
+    for item in items {
+        let status = item.FmtValue.CStatus;
+        if status != PDH_CSTATUS_VALID_DATA && status != PDH_CSTATUS_NEW_DATA {
+            continue;
+        }
+        // SAFETY: with PDH_FMT_DOUBLE the value union holds a double.
+        let value = unsafe { item.FmtValue.Anonymous.doubleValue };
+        out.push((wide_ptr_to_string(item.szName), value));
+    }
+    Some(out)
+}
+
+fn wide_ptr_to_string(p: *const u16) -> String {
+    if p.is_null() {
+        return String::new();
+    }
+    let mut len = 0usize;
+    // SAFETY: PDH instance names are NUL-terminated and live in the buffer read above.
+    unsafe {
+        while *p.add(len) != 0 {
+            len += 1;
+        }
+        String::from_utf16_lossy(std::slice::from_raw_parts(p, len))
+    }
+}

@@ -21,10 +21,12 @@
 #![cfg(windows)]
 
 pub mod calc;
+pub mod gpu;
+pub mod net;
 mod sys;
 
-use std::collections::HashMap;
-use std::time::Instant;
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 use tpt_monitor_core::{
     MonitorError, Pid, ProcessAction, ProcessMetrics, Result, SystemMetrics, SystemMonitor,
@@ -47,6 +49,11 @@ pub struct WindowsMonitor {
     last_sample: Option<Instant>,
     prev_processes: HashMap<Pid, PrevProcess>,
     prev_cpu: Option<Vec<(u64, u64)>>,
+    net: net::NetTracker,
+    /// Connections for which byte-counter collection is already switched on.
+    estats_enabled: HashSet<net::TcpRow>,
+    /// GPU counters, if this machine exposes them.
+    gpu: Option<sys::GpuCounters>,
 }
 
 impl Default for WindowsMonitor {
@@ -63,7 +70,30 @@ impl WindowsMonitor {
             last_sample: None,
             prev_processes: HashMap::new(),
             prev_cpu: None,
+            net: net::NetTracker::new(),
+            estats_enabled: HashSet::new(),
+            gpu: sys::open_gpu_counters().ok(),
         }
+    }
+
+    /// Per-process TCP rates for this interval, or `None` if the connection table
+    /// cannot be read. Connections whose counters are unavailable (usually because the
+    /// app is not elevated) contribute nothing.
+    fn sample_net(&mut self, elapsed: Duration) -> Option<HashMap<u32, net::NetRates>> {
+        let table = sys::tcp_owner_table().ok()?;
+        let rows = net::parse_owner_table(&table);
+        let mut samples = Vec::new();
+        for row in rows.iter().filter(|r| r.state == net::STATE_ESTABLISHED) {
+            if !self.estats_enabled.contains(row) && sys::enable_estats(row).is_ok() {
+                self.estats_enabled.insert(*row);
+            }
+            let counters =
+                if self.estats_enabled.contains(row) { sys::estats_counters(row) } else { None };
+            samples.push(net::ConnSample { pid: row.pid, key: *row, counters });
+        }
+        let live: HashSet<net::TcpRow> = rows.iter().copied().collect();
+        self.estats_enabled.retain(|row| live.contains(row));
+        Some(self.net.observe(&samples, elapsed))
     }
 
     /// Logical processor count used for CPU scaling.
@@ -78,6 +108,10 @@ impl SystemMonitor for WindowsMonitor {
         let elapsed = self.last_sample.map(|t| now.duration_since(t));
         let wall_ticks = elapsed.map(calc::elapsed_ticks).unwrap_or(0);
         let windows = sys::pids_with_visible_windows();
+        let tcp = self.sample_net(elapsed.unwrap_or(Duration::ZERO));
+        let gpu = self.gpu.as_mut().and_then(|g| g.sample());
+        let gpu_engine = gpu.as_ref().map(|(engine, _)| gpu::engine_percent_by_pid(engine));
+        let gpu_memory = gpu.as_ref().map(|(_, memory)| gpu::memory_by_pid(memory));
 
         let mut next: HashMap<Pid, PrevProcess> = HashMap::new();
         let mut out = Vec::new();
@@ -85,6 +119,19 @@ impl SystemMonitor for WindowsMonitor {
         for (pid, name) in sys::list_processes()? {
             let mut metrics = ProcessMetrics::new(pid, name);
             metrics.has_visible_window = windows.contains(&pid.0);
+            if let Some(engine) = &gpu_engine {
+                // Present whenever GPU counters work; a process with no GPU work reads zero.
+                metrics.gpu_engine_percent = Some(engine.get(&pid.0).copied().unwrap_or(0.0));
+            }
+            if let Some(memory) = &gpu_memory {
+                metrics.vram_bytes = Some(memory.get(&pid.0).copied().unwrap_or(0));
+            }
+            if let Some(rates) = &tcp {
+                // Only processes with connections appear in the table; the rest read zero.
+                let r = rates.get(&pid.0).copied().unwrap_or_default();
+                metrics.net_up_bytes_per_sec = Some(r.up);
+                metrics.net_down_bytes_per_sec = Some(r.down);
+            }
 
             if let Some(handle) = sys::open_for_query(pid) {
                 if let Ok((creation, busy_ticks)) = sys::process_times(&handle) {
