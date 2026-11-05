@@ -164,7 +164,7 @@ Decisions locked in for this roadmap:
 - [ ] Integration tests: process actions against a spawned test process (kill/suspend/resume/priority/affinity) (partial: Windows live tests cover kill, suspend, resume and priority on a child process; affinity and the Linux path are not yet exercised live)
 - [ ] Manual QA: Windows 10/11 (elevated + unelevated launch)
 - [ ] Manual QA: Linux (X11 + Wayland, at least one major distro; root and non-root launch)
-- [ ] Stress test: process list + graphs responsiveness with hundreds/thousands of processes (e.g. many browser tabs)
+- [ ] Stress test: process list + graphs responsiveness with hundreds/thousands of processes (e.g. many browser tabs) (partial: core and sampler tests with 3,000 processes assert correctness, and print timings; the UI's responsiveness with that many rows has not been measured)
 - [x] Security review: elevated-process attack surface (IPC command validation, no arbitrary code exec via overlay/window creation), critical-process list cannot be bypassed to suggest suspending core OS processes (docs/security-review.md: findings 1 and 3 fixed, elevation trade-off recorded; re-run before each release)
 
 ## Phase 13 — Release v1
