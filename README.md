@@ -34,8 +34,13 @@ Implemented so far:
   sensors, process table, suggestions, and disk/network/GPU panels. Light and dark
   themes.
 
-Not yet built: network and GPU data, per-drive I/O, overlay windows, the tray, and
-the safe/critical list viewer. See `todo.md` for the full list.
+- **Desktop overlays and tray**: any widget can pop out into an always-on-top,
+  transparent window with opacity, click-through and dock-back controls. The tray
+  shows a live CPU graph and the busiest processes.
+
+Not yet built: network and GPU data, per-drive I/O, per-monitor overlay placement,
+RAM in the tray graph, and the safe/critical list viewer. See `todo.md` for the full
+list.
 
 ## Platforms
 

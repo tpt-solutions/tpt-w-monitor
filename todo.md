@@ -53,7 +53,7 @@ Decisions locked in for this roadmap:
 | 5  | Process Actions & Smart Suggestions Engine       | 🟡 In Progress |
 | 6  | Tauri Shell & IPC Layer                          | 🟡 In Progress |
 | 7  | Widget Dashboard Frontend                        | 🟡 In Progress |
-| 8  | Desktop Overlay Widgets & Tray                   | ❌ Not Started |
+| 8  | Desktop Overlay Widgets & Tray                   | 🟡 In Progress |
 | 9  | Smart Suggestions UI                             | 🟡 In Progress |
 | 10 | Archon Support (Design Only)                     | ✅ Complete |
 | 11 | Performance & Polish                             | ❌ Not Started |
@@ -117,7 +117,7 @@ Decisions locked in for this roadmap:
 - [x] Tauri app scaffold wired to `core` sampling scheduler
 - [x] Event push from Rust sampling loop to frontend (Tauri events/channels) with throttling for high-process-count machines
 - [x] Command layer for process actions + suggestion apply/dismiss
-- [ ] Multi-window support configured for overlay widgets (Phase 8)
+- [x] Multi-window support configured for overlay widgets (Phase 8): overlay windows with their own capability file
 - [x] IPC boundary tests (command validation, no arbitrary PID/action injection beyond intended surface)
 
 ## Phase 7 — Widget Dashboard Frontend
@@ -134,11 +134,11 @@ Decisions locked in for this roadmap:
 - [x] Widget palette/add-widget UI
 
 ## Phase 8 — Desktop Overlay Widgets & Tray
-- [ ] Pop-out action per widget → dedicated Tauri window (`decorations:false`, `alwaysOnTop:true`, `skipTaskbar:true`, transparent background)
-- [ ] Click-through toggle (Windows `WS_EX_TRANSPARENT`; best-effort X11/Wayland equivalent on Linux)
-- [ ] Drag-to-reposition + resize, per-monitor placement persistence, "dock back to dashboard" action
-- [ ] Independent per-overlay opacity setting
-- [ ] System tray icon with live mini CPU/RAM history graph + quick context menu (open dashboard, top processes, exit)
+- [x] Pop-out action per widget → dedicated Tauri window (`decorations:false`, `alwaysOnTop:true`, `skipTaskbar:true`, transparent background) (the widget moves out of the grid; the overlay restores on next launch)
+- [x] Click-through toggle (Windows `WS_EX_TRANSPARENT`; best-effort X11/Wayland equivalent on Linux) (uses Tauri's ignore-cursor-events; not yet tested on Windows or Linux)
+- [ ] Drag-to-reposition + resize, per-monitor placement persistence, "dock back to dashboard" action (drag, resize and dock back are in; positions are saved as absolute coordinates, not keyed per monitor yet)
+- [x] Independent per-overlay opacity setting (CSS opacity on the widget body, not window alpha)
+- [ ] System tray icon with live mini CPU/RAM history graph + quick context menu (open dashboard, top processes, exit) (CPU graph, top-process lines, open/click-through/quit are in; the RAM graph is not, and the menu is not yet exercised on a desktop)
 
 ## Phase 9 — Smart Suggestions UI
 - [x] Suggestions feed/panel (sorted by impact), rationale display per suggestion
