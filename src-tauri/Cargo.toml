@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 TPT Solutions
+
+[package]
+name = "tpt-monitor-tauri"
+description = "Tauri shell for tpt-monitor: sampling loop, IPC commands and frame events"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[lib]
+name = "tpt_monitor_tauri"
+
+[[bin]]
+name = "tpt-monitor"
+path = "src/main.rs"
+# The binary carries the requireAdministrator manifest, so its test harness cannot
+# start unelevated (os error 740). Tests live in the library instead.
+test = false
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tpt-monitor-core = { path = "../core" }
+
+[target.'cfg(windows)'.dependencies]
+tpt-monitor-platform-windows = { path = "../platform-windows" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tpt-monitor-platform-linux = { path = "../platform-linux" }
+
+[dev-dependencies]
