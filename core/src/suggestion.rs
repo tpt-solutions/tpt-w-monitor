@@ -14,6 +14,15 @@ use crate::action::{Priority, ProcessAction};
 use crate::history::RingBuffer;
 use crate::model::{Pid, ProcessMetrics};
 
+/// Which rule produced a suggestion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SuggestionReason {
+    /// Sustained CPU use while in the background (or while the user is idle).
+    SustainedCpu,
+    /// Sustained disk I/O while in the background (or while the user is idle).
+    SustainedDisk,
+}
+
 /// A proposed action with the reasoning behind it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Suggestion {
@@ -29,6 +38,8 @@ pub struct Suggestion {
     pub confidence: f32,
     /// Average CPU over the window, used to sort the feed by impact.
     pub impact_cpu_percent: f32,
+    /// The rule that fired.
+    pub reason: SuggestionReason,
 }
 
 /// Thresholds for the sustained-CPU rule.
@@ -41,11 +52,19 @@ pub struct SuggestionConfig {
     pub cpu_threshold_percent: f32,
     /// Fraction of the window that must be busy, 0.0..=1.0.
     pub sustain_ratio: f32,
+    /// Read plus write rate, bytes per second, at or above which a sample counts as
+    /// disk-busy. The default of 5 MiB/s is well above idle background noise.
+    pub disk_threshold_bytes_per_sec: f32,
 }
 
 impl Default for SuggestionConfig {
     fn default() -> Self {
-        Self { window_samples: 30, cpu_threshold_percent: 15.0, sustain_ratio: 0.8 }
+        Self {
+            window_samples: 30,
+            cpu_threshold_percent: 15.0,
+            sustain_ratio: 0.8,
+            disk_threshold_bytes_per_sec: 5.0 * 1024.0 * 1024.0,
+        }
     }
 }
 
@@ -122,7 +141,19 @@ impl CriticalList {
 struct Track {
     name: String,
     cpu: RingBuffer<f32>,
+    io: RingBuffer<f32>,
     background: bool,
+}
+
+impl Track {
+    fn new(name: &str, window: usize) -> Self {
+        Self {
+            name: name.to_string(),
+            cpu: RingBuffer::new(window),
+            io: RingBuffer::new(window),
+            background: false,
+        }
+    }
 }
 
 /// Observes samples and produces suggestions.
@@ -154,17 +185,17 @@ impl SuggestionEngine {
 
         for p in processes {
             let window = self.config.window_samples;
-            let track = self.tracks.entry(p.pid).or_insert_with(|| Track {
-                name: p.name.clone(),
-                cpu: RingBuffer::new(window),
-                background: false,
-            });
+            let track = self.tracks.entry(p.pid).or_insert_with(|| Track::new(&p.name, window));
             // A reused PID with a different executable starts a fresh history.
             if track.name != p.name {
-                *track =
-                    Track { name: p.name.clone(), cpu: RingBuffer::new(window), background: false };
+                *track = Track::new(&p.name, window);
             }
             track.cpu.push(p.cpu_percent);
+            let io = match (p.disk_read_bytes_per_sec, p.disk_write_bytes_per_sec) {
+                (None, None) => 0.0,
+                (r, w) => (r.unwrap_or(0) + w.unwrap_or(0)) as f32,
+            };
+            track.io.push(io);
             track.background = !p.has_visible_window;
         }
     }
@@ -229,35 +260,8 @@ impl SuggestionEngine {
                 if self.critical.is_critical(&track.name) || self.is_dismissed(&track.name) {
                     return None;
                 }
-
-                let total = track.cpu.len() as f32;
-                let busy = track.cpu.iter().filter(|&&c| c >= cfg.cpu_threshold_percent).count();
-                let fraction = busy as f32 / total;
-                if fraction < cfg.sustain_ratio {
-                    return None;
-                }
-
-                let avg = track.cpu.iter().sum::<f32>() / total;
-                let (action, verb) = if avg >= cfg.cpu_threshold_percent * 2.0 {
-                    (ProcessAction::Suspend, "can be suspended")
-                } else {
-                    (
-                        ProcessAction::SetPriority(Priority::BelowNormal),
-                        "could run at lower priority",
-                    )
-                };
-
-                Some(Suggestion {
-                    pid: *pid,
-                    process_name: track.name.clone(),
-                    rationale: format!(
-                        "{} is averaging {:.0}% CPU in the background and {verb}.",
-                        track.name, avg
-                    ),
-                    recommended_action: action,
-                    confidence: fraction,
-                    impact_cpu_percent: avg,
-                })
+                // CPU is the stronger signal, so it wins when both rules fire.
+                self.cpu_suggestion(*pid, track).or_else(|| self.disk_suggestion(*pid, track))
             })
             .collect();
 
@@ -265,5 +269,63 @@ impl SuggestionEngine {
             b.impact_cpu_percent.total_cmp(&a.impact_cpu_percent).then(a.pid.cmp(&b.pid))
         });
         out
+    }
+}
+
+impl SuggestionEngine {
+    /// Sustained CPU rule for one process, if it fires.
+    fn cpu_suggestion(&self, pid: Pid, track: &Track) -> Option<Suggestion> {
+        let cfg = &self.config;
+        let total = track.cpu.len() as f32;
+        let busy = track.cpu.iter().filter(|&&c| c >= cfg.cpu_threshold_percent).count();
+        let fraction = busy as f32 / total;
+        if fraction < cfg.sustain_ratio {
+            return None;
+        }
+        let avg = track.cpu.iter().sum::<f32>() / total;
+        let (action, verb) = if avg >= cfg.cpu_threshold_percent * 2.0 {
+            (ProcessAction::Suspend, "can be suspended")
+        } else {
+            (ProcessAction::SetPriority(Priority::BelowNormal), "could run at lower priority")
+        };
+        Some(Suggestion {
+            pid,
+            process_name: track.name.clone(),
+            rationale: format!(
+                "{} is averaging {:.0}% CPU in the background and {verb}.",
+                track.name, avg
+            ),
+            recommended_action: action,
+            confidence: fraction,
+            impact_cpu_percent: avg,
+            reason: SuggestionReason::SustainedCpu,
+        })
+    }
+
+    /// Sustained disk rule for one process, if it fires. Suspending stops the I/O, which
+    /// is the reversible action that addresses it.
+    fn disk_suggestion(&self, pid: Pid, track: &Track) -> Option<Suggestion> {
+        let cfg = &self.config;
+        let total = track.io.len() as f32;
+        let busy = track.io.iter().filter(|&&b| b >= cfg.disk_threshold_bytes_per_sec).count();
+        let fraction = busy as f32 / total;
+        if fraction < cfg.sustain_ratio {
+            return None;
+        }
+        let avg_rate = track.io.iter().sum::<f32>() / total;
+        let avg_cpu = track.cpu.iter().sum::<f32>() / total;
+        let mib = avg_rate / (1024.0 * 1024.0);
+        Some(Suggestion {
+            pid,
+            process_name: track.name.clone(),
+            rationale: format!(
+                "{} is averaging {:.1} MiB/s of disk I/O in the background and can be suspended.",
+                track.name, mib
+            ),
+            recommended_action: ProcessAction::Suspend,
+            confidence: fraction,
+            impact_cpu_percent: avg_cpu,
+            reason: SuggestionReason::SustainedDisk,
+        })
     }
 }

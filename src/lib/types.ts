@@ -44,6 +44,7 @@ export interface SuggestionDto {
   recommendedAction: ActionDto;
   confidence: number;
   impactCpuPercent: number;
+  reason: 'sustainedCpu' | 'sustainedDisk';
 }
 
 export interface TemperatureDto {

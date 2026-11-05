@@ -29,5 +29,7 @@ pub use model::{AdapterMetrics, DriveMetrics, MemoryUsage, Pid, ProcessMetrics, 
 pub use sampler::{Sampler, Snapshot};
 pub use scheduler::{SamplingScheduler, ViewState};
 pub use sensors::{FanReading, TemperatureReading};
-pub use suggestion::{CriticalList, Suggestion, SuggestionConfig, SuggestionEngine};
+pub use suggestion::{
+    CriticalList, Suggestion, SuggestionConfig, SuggestionEngine, SuggestionReason,
+};
 pub use traits::{SensorProvider, SystemMonitor};

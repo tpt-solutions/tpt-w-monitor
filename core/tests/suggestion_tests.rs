@@ -3,12 +3,18 @@
 
 //! Suggestion engine against fixture process histories.
 
+use tpt_monitor_core::SuggestionReason;
 use tpt_monitor_core::{
     CriticalList, Pid, Priority, ProcessAction, ProcessMetrics, SuggestionConfig, SuggestionEngine,
 };
 
 fn cfg() -> SuggestionConfig {
-    SuggestionConfig { window_samples: 4, cpu_threshold_percent: 15.0, sustain_ratio: 0.75 }
+    SuggestionConfig {
+        window_samples: 4,
+        cpu_threshold_percent: 15.0,
+        sustain_ratio: 0.75,
+        ..SuggestionConfig::default()
+    }
 }
 
 fn engine() -> SuggestionEngine {
@@ -178,4 +184,68 @@ fn foreground_process_is_not_suggested_while_the_user_is_active() {
     assert!(!e.user_idle());
     feed(&mut e, 61, "render.exe", &[80.0, 80.0, 80.0, 80.0], true);
     assert!(e.suggestions().is_empty());
+}
+
+/// A process with the given CPU and disk read rate (bytes per second) for one sample.
+fn io_sample(pid: u32, name: &str, cpu: f32, read_bps: u64, visible: bool) -> ProcessMetrics {
+    let mut p = sample(pid, name, cpu, visible);
+    p.disk_read_bytes_per_sec = Some(read_bps);
+    p.disk_write_bytes_per_sec = Some(0);
+    p
+}
+
+const MIB: u64 = 1024 * 1024;
+
+#[test]
+fn sustained_disk_io_in_the_background_is_suggested_as_a_suspend() {
+    let mut e = engine();
+    for _ in 0..4 {
+        e.observe(&[io_sample(70, "backup.exe", 1.0, 20 * MIB, false)]);
+    }
+    let s = e.suggestions();
+    assert_eq!(s.len(), 1);
+    assert_eq!(s[0].reason, SuggestionReason::SustainedDisk);
+    assert_eq!(s[0].recommended_action, ProcessAction::Suspend);
+    assert!(s[0].rationale.contains("MiB/s"));
+}
+
+#[test]
+fn brief_disk_burst_is_not_suggested() {
+    let mut e = engine();
+    let rates = [50 * MIB, MIB, 0, 0];
+    for r in rates {
+        e.observe(&[io_sample(71, "copy.exe", 1.0, r, false)]);
+    }
+    assert!(e.suggestions().is_empty());
+}
+
+#[test]
+fn cpu_rule_wins_when_both_rules_fire_for_one_process() {
+    let mut e = engine();
+    for _ in 0..4 {
+        e.observe(&[io_sample(72, "both.exe", 80.0, 20 * MIB, false)]);
+    }
+    let s = e.suggestions();
+    assert_eq!(s.len(), 1, "one suggestion per process");
+    assert_eq!(s[0].reason, SuggestionReason::SustainedCpu);
+}
+
+#[test]
+fn critical_process_is_never_suggested_for_disk_either() {
+    let mut e = engine();
+    for _ in 0..4 {
+        e.observe(&[io_sample(73, "csrss.exe", 1.0, 50 * MIB, false)]);
+    }
+    assert!(e.suggestions().is_empty());
+}
+
+#[test]
+fn disk_suggestion_needs_the_user_away_or_the_app_in_the_background() {
+    let mut e = engine();
+    for _ in 0..4 {
+        e.observe(&[io_sample(74, "editor.exe", 1.0, 20 * MIB, true)]);
+    }
+    assert!(e.suggestions().is_empty(), "foreground and user active");
+    e.set_user_idle(true);
+    assert_eq!(e.suggestions().len(), 1);
 }

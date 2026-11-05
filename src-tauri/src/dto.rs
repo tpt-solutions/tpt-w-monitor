@@ -5,7 +5,9 @@
 //! only shape that crosses IPC, and inbound action payloads are parsed strictly.
 
 use serde::{Deserialize, Serialize};
-use tpt_monitor_core::{Priority, ProcessAction, ProcessMetrics, Suggestion, ViewState};
+use tpt_monitor_core::{
+    Priority, ProcessAction, ProcessMetrics, Suggestion, SuggestionReason, ViewState,
+};
 
 use crate::state::Frame;
 
@@ -119,6 +121,8 @@ pub struct SuggestionDto {
     pub confidence: f32,
     /// Average CPU over the window.
     pub impact_cpu_percent: f32,
+    /// Which rule fired: "sustainedCpu" or "sustainedDisk".
+    pub reason: &'static str,
 }
 
 /// A process action. Deserialization rejects unknown kinds and extra fields, so the
@@ -274,6 +278,10 @@ impl From<&Suggestion> for SuggestionDto {
             recommended_action: action_to_dto(s.recommended_action),
             confidence: s.confidence,
             impact_cpu_percent: s.impact_cpu_percent,
+            reason: match s.reason {
+                SuggestionReason::SustainedCpu => "sustainedCpu",
+                SuggestionReason::SustainedDisk => "sustainedDisk",
+            },
         }
     }
 }
