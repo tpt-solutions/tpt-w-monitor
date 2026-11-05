@@ -73,3 +73,15 @@ export interface ViewDto {
   dashboardFocused: boolean;
   openOverlays: number;
 }
+
+/** An open desktop overlay, as the backend saves it. */
+export interface OverlayDto {
+  id: string;
+  kind: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  opacity: number;
+  clickThrough: boolean;
+}

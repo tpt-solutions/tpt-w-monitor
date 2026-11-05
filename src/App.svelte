@@ -4,7 +4,7 @@
 
   import { onMount } from 'svelte';
   import { createDashboard, type Dashboard } from './lib/dashboard';
-  import { ipc, onFrame } from './lib/ipc';
+  import { ipc, onDockRequest, onFrame } from './lib/ipc';
   import { ingest, live, notify } from './lib/live.svelte';
   import {
     WIDGET_INFO,
@@ -60,6 +60,17 @@
     }
   }
 
+  /** A widget left the grid for its own window. If opening fails, it returns to the grid. */
+  async function popOutWidget(kind: WidgetKind, id: string) {
+    try {
+      await ipc.openOverlay(kind, id);
+      notify(`${WIDGET_INFO[kind].title} is now in its own window. Use its dock button to bring it back.`);
+    } catch (error) {
+      dashboard?.add(kind);
+      notify(`Could not open the overlay: ${String(error)}`);
+    }
+  }
+
   function addWidget() {
     if (!dashboard?.add(palette)) notify('Widget limit reached. Remove one to add another.');
   }
@@ -99,7 +110,17 @@
   onMount(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    dashboard = createDashboard(gridHost, scheduleAutosave);
+    let unlistenDock: (() => void) | undefined;
+
+    // An overlay's dock button sends its widget back to the grid.
+    void onDockRequest(({ kind }) => {
+      if (dashboard?.add(kind)) notify(`${WIDGET_INFO[kind].title} is back on the dashboard.`);
+      else notify('Widget limit reached. Remove one before docking another.');
+    }).then((stop) => {
+      if (disposed) stop();
+      else unlistenDock = stop;
+    });
+    dashboard = createDashboard(gridHost, scheduleAutosave, (kind, id) => void popOutWidget(kind, id));
 
     void (async () => {
       let doc = null;
@@ -130,11 +151,15 @@
     // Tell the backend when the dashboard is visible and focused, so it can slow sampling.
     const reportView = () => {
       void ipc
-        .setViewState({
-          dashboardVisible: document.visibilityState === 'visible',
-          dashboardFocused: document.hasFocus(),
-          openOverlays: 0,
-        })
+        .listOverlays()
+        .catch(() => [])
+        .then((overlays) =>
+          ipc.setViewState({
+            dashboardVisible: document.visibilityState === 'visible',
+            dashboardFocused: document.hasFocus(),
+            openOverlays: overlays.length,
+          }),
+        )
         .catch(() => undefined);
     };
     reportView();
@@ -145,6 +170,7 @@
     return () => {
       disposed = true;
       unlisten?.();
+      unlistenDock?.();
       document.removeEventListener('visibilitychange', reportView);
       window.removeEventListener('focus', reportView);
       window.removeEventListener('blur', reportView);

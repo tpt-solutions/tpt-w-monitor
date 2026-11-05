@@ -3,10 +3,11 @@
   // Copyright (c) 2026 TPT Solutions
 
   import WidgetCard from './WidgetCard.svelte';
+  import type { WidgetProps } from './props';
   import { live } from '../live.svelte';
   import { formatRate } from '../format';
 
-  let { onRemove }: { onRemove: () => void } = $props();
+  let { onRemove, onPopOut }: WidgetProps = $props();
 
   // Per-drive totals are not available yet, so this lists the busiest processes by disk I/O.
   const busiest = $derived(
@@ -22,7 +23,7 @@
   );
 </script>
 
-<WidgetCard title="Disk I/O" {onRemove}>
+<WidgetCard title="Disk I/O" {onRemove} {onPopOut}>
   {#if busiest.length === 0}
     <p class="muted">Disk I/O is not reported yet. Per-drive totals are still to come.</p>
   {:else}

@@ -3,18 +3,19 @@
   // Copyright (c) 2026 TPT Solutions
 
   import WidgetCard from './WidgetCard.svelte';
+  import type { WidgetProps } from './props';
   import Sparkline from './Sparkline.svelte';
   import { live } from '../live.svelte';
   import { formatPercent } from '../format';
 
-  let { onRemove }: { onRemove: () => void } = $props();
+  let { onRemove, onPopOut }: WidgetProps = $props();
 
   let perCore = $state(false);
   const total = $derived(live.frame?.system.cpuTotalPercent ?? null);
   const cores = $derived(live.frame?.system.cpuPerCorePercent ?? []);
 </script>
 
-<WidgetCard title="CPU" {onRemove}>
+<WidgetCard title="CPU" {onRemove} {onPopOut}>
   <div class="reading">{formatPercent(total)}</div>
   <Sparkline values={live.cpu} label="CPU history" />
   <label class="toggle">

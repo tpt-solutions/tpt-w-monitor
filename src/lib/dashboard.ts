@@ -5,7 +5,7 @@
 // owns the cell geometry; each cell's content is a Svelte component mounted here.
 
 import { GridStack, type GridItemHTMLElement, type GridStackWidget } from 'gridstack';
-import { mount, unmount, type Component } from 'svelte';
+import { mount, unmount } from 'svelte';
 import {
   GRID_COLUMNS,
   MAX_WIDGETS,
@@ -15,27 +15,7 @@ import {
   type WidgetKind,
   type WidgetPlacement,
 } from './layout';
-import CpuWidget from './widgets/CpuWidget.svelte';
-import MemoryWidget from './widgets/MemoryWidget.svelte';
-import SensorsWidget from './widgets/SensorsWidget.svelte';
-import NetworkWidget from './widgets/NetworkWidget.svelte';
-import DiskWidget from './widgets/DiskWidget.svelte';
-import GpuWidget from './widgets/GpuWidget.svelte';
-import SuggestionsWidget from './widgets/SuggestionsWidget.svelte';
-import ProcessesWidget from './widgets/ProcessesWidget.svelte';
-
-type WidgetProps = { onRemove: () => void };
-
-const COMPONENTS: Record<WidgetKind, Component<WidgetProps>> = {
-  cpu: CpuWidget,
-  memory: MemoryWidget,
-  processes: ProcessesWidget,
-  sensors: SensorsWidget,
-  network: NetworkWidget,
-  disk: DiskWidget,
-  gpu: GpuWidget,
-  suggestions: SuggestionsWidget,
-};
+import { COMPONENTS } from './registry';
 
 interface Mounted {
   kind: WidgetKind;
@@ -56,9 +36,15 @@ export interface Dashboard {
 
 /**
  * Creates the grid inside `container`. `onChange` fires after the user moves,
- * resizes, adds or removes a widget, so the caller can autosave.
+ * resizes, adds, removes or pops out a widget, so the caller can autosave.
+ * `onPopOut` receives a widget that has just left the grid; the caller opens it in
+ * its own window, and sends it back through `add` if that fails.
  */
-export function createDashboard(container: HTMLElement, onChange: () => void): Dashboard {
+export function createDashboard(
+  container: HTMLElement,
+  onChange: () => void,
+  onPopOut: (kind: WidgetKind, id: string) => void,
+): Dashboard {
   const started = GridStack.init(
     {
       column: GRID_COLUMNS,
@@ -98,7 +84,10 @@ export function createDashboard(container: HTMLElement, onChange: () => void): D
     if (!target) throw new Error('gridstack did not create a content element');
     const app = mount(COMPONENTS[kind], {
       target,
-      props: { onRemove: () => remove(id) },
+      props: {
+        onRemove: () => remove(id),
+        onPopOut: () => popOut(id),
+      },
     });
     mounted.set(id, { kind, el, app: app as Record<string, unknown> });
   }
@@ -106,6 +95,15 @@ export function createDashboard(container: HTMLElement, onChange: () => void): D
   function remove(id: string) {
     unmountWidget(id, true);
     onChange();
+  }
+
+  function popOut(id: string) {
+    const item = mounted.get(id);
+    if (!item) return;
+    const kind = item.kind;
+    unmountWidget(id, true);
+    onChange();
+    onPopOut(kind, id);
   }
 
   grid.on('change', () => onChange());

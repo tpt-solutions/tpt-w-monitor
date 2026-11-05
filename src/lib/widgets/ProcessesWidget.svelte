@@ -3,6 +3,7 @@
   // Copyright (c) 2026 TPT Solutions
 
   import WidgetCard from './WidgetCard.svelte';
+  import type { WidgetProps } from './props';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import { live } from '../live.svelte';
   import { runAction } from '../actions';
@@ -10,7 +11,7 @@
   import { formatBytes, formatPercent, formatRate } from '../format';
   import type { PriorityDto, ProcessDto } from '../types';
 
-  let { onRemove }: { onRemove: () => void } = $props();
+  let { onRemove, onPopOut }: WidgetProps = $props();
 
   /** Rows rendered at once. The full list is still sorted and filtered. */
   const ROW_LIMIT = 300;
@@ -64,7 +65,7 @@
   }
 </script>
 
-<WidgetCard title="Processes" {onRemove}>
+<WidgetCard title="Processes" {onRemove} {onPopOut}>
   <div class="toolbar">
     <input type="search" placeholder="Filter by name or PID" aria-label="Filter processes" bind:value={query} />
     <span class="muted small">{matching} match{matching === 1 ? '' : 'es'}{matching > ROW_LIMIT ? `, showing first ${ROW_LIMIT}` : ''}</span>

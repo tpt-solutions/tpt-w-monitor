@@ -6,12 +6,13 @@
   // here, and the backend re-checks every action.
 
   import WidgetCard from './WidgetCard.svelte';
+  import type { WidgetProps } from './props';
   import { live, notify } from '../live.svelte';
   import { ipc } from '../ipc';
   import { runAction } from '../actions';
   import { formatPercent } from '../format';
 
-  let { onRemove }: { onRemove: () => void } = $props();
+  let { onRemove, onPopOut }: WidgetProps = $props();
 
   const suggestions = $derived(live.frame?.suggestions ?? []);
 
@@ -28,7 +29,7 @@
   }
 </script>
 
-<WidgetCard title="Suggestions" {onRemove}>
+<WidgetCard title="Suggestions" {onRemove} {onPopOut}>
   {#if suggestions.length === 0}
     <p class="muted">Nothing to suggest right now. Suggestions appear after a background process stays busy for about 30 seconds.</p>
   {:else}

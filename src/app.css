@@ -371,6 +371,76 @@ td.actions select {
   gap: 8px;
 }
 
+/* Desktop overlay windows: transparent page, a small toolbar, and the widget card
+   with its own header hidden (the toolbar carries the title and controls). */
+:root.overlay-window,
+:root.overlay-window body {
+  background: transparent;
+}
+
+.overlay-root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+
+.overlay-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
+  cursor: move;
+  user-select: none;
+}
+
+.overlay-bar button,
+.overlay-bar input {
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+.overlay-bar input[type='range'] {
+  width: 70px;
+  padding: 0;
+}
+
+.overlay-title {
+  flex: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-note {
+  margin: 4px 6px;
+  color: var(--muted);
+}
+
+.overlay-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.overlay-body .card {
+  border-radius: 0 0 8px 8px;
+}
+
+.overlay-body .card-head {
+  display: none;
+}
+
+.card-tools {
+  display: flex;
+  gap: 4px;
+}
+
 /* Phone width: one column, full-width cards, no horizontal page scroll. */
 @media (max-width: 700px) {
   .app {

@@ -3,10 +3,11 @@
   // Copyright (c) 2026 TPT Solutions
 
   import WidgetCard from './WidgetCard.svelte';
+  import type { WidgetProps } from './props';
   import { live } from '../live.svelte';
   import { formatBytes, formatPercent } from '../format';
 
-  let { onRemove }: { onRemove: () => void } = $props();
+  let { onRemove, onPopOut }: WidgetProps = $props();
 
   const gpuProcesses = $derived(
     (live.frame?.processes ?? [])
@@ -16,7 +17,7 @@
   );
 </script>
 
-<WidgetCard title="GPU" {onRemove}>
+<WidgetCard title="GPU" {onRemove} {onPopOut}>
   {#if gpuProcesses.length === 0}
     <p class="muted">GPU counters are not reported yet (Windows PDH and Linux DRM are in progress).</p>
   {:else}

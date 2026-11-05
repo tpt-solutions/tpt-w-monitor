@@ -3,16 +3,17 @@
   // Copyright (c) 2026 TPT Solutions
 
   import WidgetCard from './WidgetCard.svelte';
+  import type { WidgetProps } from './props';
   import { live } from '../live.svelte';
   import { formatCelsius, formatRpm } from '../format';
 
-  let { onRemove }: { onRemove: () => void } = $props();
+  let { onRemove, onPopOut }: WidgetProps = $props();
 
   const temps = $derived(live.frame?.sensors.temperatures ?? null);
   const fans = $derived(live.frame?.sensors.fans ?? null);
 </script>
 
-<WidgetCard title="Temperature & fans" {onRemove}>
+<WidgetCard title="Temperature & fans" {onRemove} {onPopOut}>
   {#if temps === null}
     <p class="muted">Temperature sensors are unavailable on this system.</p>
   {:else if temps.length === 0}
