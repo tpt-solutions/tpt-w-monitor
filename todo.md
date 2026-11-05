@@ -51,13 +51,13 @@ Decisions locked in for this roadmap:
 | 3  | Linux Backend                                   | 🟡 In Progress |
 | 4  | Hardware Sensors (Temperature & Fan)             | 🟡 In Progress |
 | 5  | Process Actions & Smart Suggestions Engine       | 🟡 In Progress |
-| 6  | Tauri Shell & IPC Layer                          | 🟡 In Progress |
+| 6  | Tauri Shell & IPC Layer                          | ✅ Complete |
 | 7  | Widget Dashboard Frontend                        | 🟡 In Progress |
 | 8  | Desktop Overlay Widgets & Tray                   | 🟡 In Progress |
 | 9  | Smart Suggestions UI                             | 🟡 In Progress |
 | 10 | Archon Support (Design Only)                     | ✅ Complete |
-| 11 | Performance & Polish                             | ❌ Not Started |
-| 12 | Testing & QA                                     | ❌ Not Started |
+| 11 | Performance & Polish                             | 🟡 In Progress |
+| 12 | Testing & QA                                     | 🟡 In Progress |
 | 13 | Release v1                                       | ❌ Not Started |
 
 ---
@@ -102,8 +102,8 @@ Decisions locked in for this roadmap:
 
 ## Phase 4 — Hardware Sensors (Temperature & Fan)
 - [x] Linux: read `lm-sensors`/`hwmon` sysfs (`/sys/class/hwmon/*`) for CPU/GPU temps + fan RPM (`LinuxSensors` reads hwmon; not yet run on a Linux host)
-- [ ] Windows: investigate safe access path (WMI `MSAcpi_ThermalZoneTemperature` first, evaluate a signed embedded-controller/SMBus driver approach — e.g. LibreHardwareMonitor-style — only if WMI proves insufficient; document the security/driver-signing tradeoffs either way) (stub reports unavailable; WMI not yet evaluated)
-- [ ] Graceful "unavailable" state in the data model + UI when no safe sensor path exists for the current hardware/OS combo (data model and IPC done; UI pending Phase 7)
+- [ ] Windows: investigate safe access path (WMI `MSAcpi_ThermalZoneTemperature` first, evaluate a signed embedded-controller/SMBus driver approach — e.g. LibreHardwareMonitor-style — only if WMI proves insufficient; document the security/driver-signing tradeoffs either way) (stub reports unavailable; on this machine WMI access is denied to an unelevated process, so the elevated path is not yet evaluated)
+- [x] Graceful "unavailable" state in the data model + UI when no safe sensor path exists for the current hardware/OS combo (data model, IPC and the Temperature & fans widget all show the unavailable state)
 - [ ] Unit tests for parsing (hwmon) and mocked WMI responses (sysfs integer parsing tested; hwmon tree and WMI tests pending)
 
 ## Phase 5 — Process Actions & Smart Suggestions Engine
@@ -160,8 +160,8 @@ Decisions locked in for this roadmap:
 - [ ] Accessibility pass (keyboard navigation, screen reader labels on dashboard + suggestions panel)
 
 ## Phase 12 — Testing & QA
-- [ ] Unit tests: metrics engine, suggestion engine, sensor parsing (mocked per-platform backends)
-- [ ] Integration tests: process actions against a spawned test process (kill/suspend/resume/priority/affinity)
+- [ ] Unit tests: metrics engine, suggestion engine, sensor parsing (mocked per-platform backends) (partial: core, suggestion, rate and parser tests exist for both platforms; the Linux parsers have not been run on a Linux host)
+- [ ] Integration tests: process actions against a spawned test process (kill/suspend/resume/priority/affinity) (partial: Windows live tests cover kill, suspend, resume and priority on a child process; affinity and the Linux path are not yet exercised live)
 - [ ] Manual QA: Windows 10/11 (elevated + unelevated launch)
 - [ ] Manual QA: Linux (X11 + Wayland, at least one major distro; root and non-root launch)
 - [ ] Stress test: process list + graphs responsiveness with hundreds/thousands of processes (e.g. many browser tabs)
@@ -188,3 +188,18 @@ Decisions locked in for this roadmap:
 - [ ] macOS support
 - [ ] Remote/headless monitoring agent mode
 - [ ] Archon backend implementation (post design-only phase, pending public `tpt-archon` API)
+
+---
+
+## Decisions log
+
+Decisions taken during development, with the reason. Change one by editing it here and in code.
+
+- **Scope:** Task-Manager-plus, not full Process Hacker parity (see top of file).
+- **Disk suggestion rule:** on, and it recommends suspend. Suspending stops the I/O and can be reversed. Threshold 5 MiB/s, sustained for 80% of a 30-sample window.
+- **RAM suggestion rule:** deferred. No reversible action frees memory; suspending keeps it resident. Revisit if a reversible trim-working-set action is added.
+- **Critical list:** built-in names are fixed. Users may add names, and only names they added can be removed, so the default protection cannot be weakened.
+- **Idle time:** 5 minutes without input counts as idle (Windows only). Unknown idle time counts as active, so nothing is suggested by default.
+- **Per-process TCP traffic:** TCP only, from ESTATS counters, which need elevation. UDP has no byte counters and is not attributed.
+- **Unavailable metrics:** shown as unavailable, never as zero. A process reads zero only when the source was readable and it had no activity.
+- **Suggestions never act on their own:** every action needs a click, and kill is never suggested.
