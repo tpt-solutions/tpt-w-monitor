@@ -1,0 +1,4 @@
+# Normalise line endings: store and check out LF everywhere so rustfmt and CI agree.
+* text=auto eol=lf
+*.png binary
+*.ico binary

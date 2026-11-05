@@ -45,17 +45,17 @@ Decisions locked in for this roadmap:
 
 | Phase | Area | Progress |
 |-------|------|----------|
-| 0  | Project Setup & Licensing                      | ❌ Not Started |
-| 1  | Core Data Model & Metrics Engine                | ❌ Not Started |
-| 2  | Windows Backend                                 | ❌ Not Started |
-| 3  | Linux Backend                                   | ❌ Not Started |
-| 4  | Hardware Sensors (Temperature & Fan)             | ❌ Not Started |
-| 5  | Process Actions & Smart Suggestions Engine       | ❌ Not Started |
-| 6  | Tauri Shell & IPC Layer                          | ❌ Not Started |
-| 7  | Widget Dashboard Frontend                        | ❌ Not Started |
+| 0  | Project Setup & Licensing                      | 🟡 In Progress |
+| 1  | Core Data Model & Metrics Engine                | ✅ Complete |
+| 2  | Windows Backend                                 | 🟡 In Progress |
+| 3  | Linux Backend                                   | 🟡 In Progress |
+| 4  | Hardware Sensors (Temperature & Fan)             | 🟡 In Progress |
+| 5  | Process Actions & Smart Suggestions Engine       | 🟡 In Progress |
+| 6  | Tauri Shell & IPC Layer                          | 🟡 In Progress |
+| 7  | Widget Dashboard Frontend                        | 🟡 In Progress |
 | 8  | Desktop Overlay Widgets & Tray                   | ❌ Not Started |
-| 9  | Smart Suggestions UI                             | ❌ Not Started |
-| 10 | Archon Support (Design Only)                     | ❌ Not Started |
+| 9  | Smart Suggestions UI                             | 🟡 In Progress |
+| 10 | Archon Support (Design Only)                     | ✅ Complete |
 | 11 | Performance & Polish                             | ❌ Not Started |
 | 12 | Testing & QA                                     | ❌ Not Started |
 | 13 | Release v1                                       | ❌ Not Started |
@@ -63,75 +63,75 @@ Decisions locked in for this roadmap:
 ---
 
 ## Phase 0 — Project Setup & Licensing
-- [ ] Init git repo, `.gitignore` (Rust + Node/Tauri targets + Windows build artifacts)
-- [ ] Add `LICENSE-MIT` and `LICENSE-APACHE` (dual license, TPT Solutions copyright)
-- [ ] Add SPDX dual-license header/notice convention for source files
-- [ ] Cargo workspace: `core/` (metrics model, suggestion engine, process-action trait), `platform-windows/`, `platform-linux/`, `src-tauri/` (Tauri backend wrapping core + multi-window/overlay management), `src/` (Svelte + Vite frontend); shared `[workspace.package]` (`license`, `authors = ["TPT Solutions"]`, `repository`)
-- [ ] `rust-toolchain.toml` (MSRV pin), `rustfmt.toml`, `clippy.toml`
-- [ ] Configure `tauri.conf.json` (app id, window defaults, bundle identifiers, `windows.requireAdministrator` manifest setting for tpt-monitor)
-- [ ] TypeScript config (tsconfig, Vite, Svelte), add `gridstack.js` dependency
-- [ ] `README.md` (from spec.txt), build instructions, license badges
-- [ ] Set up CI (GitHub Actions, build+lint+test on Windows + Linux runners)
+- [x] Init git repo, `.gitignore` (Rust + Node/Tauri targets + Windows build artifacts)
+- [x] Add `LICENSE-MIT` and `LICENSE-APACHE` (dual license, TPT Solutions copyright)
+- [x] Add SPDX dual-license header/notice convention for source files (see `CONTRIBUTING.md`)
+- [x] Cargo workspace (root workspace, `core/`, `platform-*/`, `src-tauri/` and `src/` Svelte frontend done): `core/` (metrics model, suggestion engine, process-action trait), `platform-windows/`, `platform-linux/`, `src-tauri/` (Tauri backend wrapping core + multi-window/overlay management), `src/` (Svelte + Vite frontend); shared `[workspace.package]` (`license`, `authors = ["TPT Solutions"]`, `repository`) 
+- [x] `rust-toolchain.toml` (MSRV pin), `rustfmt.toml`, `clippy.toml`
+- [x] Configure `tauri.conf.json` (app id, window defaults, bundle identifiers, `windows.requireAdministrator` manifest setting for tpt-monitor)
+- [x] TypeScript config (tsconfig, Vite, Svelte), add `gridstack.js` dependency
+- [x] `README.md` (from spec.txt), build instructions, license badges
+- [x] Set up CI (GitHub Actions, build+lint+test on Windows + Linux runners) (workflow in `.github/workflows/ci.yml`; not yet run on GitHub)
 - [ ] Repo hosting under `tpt-solutions` GitHub org
 
 ## Phase 1 — Core Data Model & Metrics Engine
-- [ ] Process/resource data model: per-process CPU%, RAM (working set/private/commit), GPU engine %/VRAM, disk read/write bytes+rate, network up/down rate; system-wide aggregates and per-core/per-drive/per-adapter breakdowns
-- [ ] Shared `trait SystemMonitor` (enumerate processes, sample per-process metrics, sample system-wide metrics, process actions) so Windows/Linux backends share one interface
-- [ ] `trait SensorProvider` (temperature/fan queries, `Option<T>`-returning for graceful "unavailable")
-- [ ] Sampling scheduler: configurable interval, adaptive slow-down when dashboard unfocused/minimized
-- [ ] Rolling in-memory ring buffers for short-window history (per metric, per process/system series)
-- [ ] Core unit tests (mocked backend implementing the traits)
+- [x] Process/resource data model: per-process CPU%, RAM (working set/private/commit), GPU engine %/VRAM, disk read/write bytes+rate, network up/down rate; system-wide aggregates and per-core/per-drive/per-adapter breakdowns
+- [x] Shared `trait SystemMonitor` (enumerate processes, sample per-process metrics, sample system-wide metrics, process actions) so Windows/Linux backends share one interface
+- [x] `trait SensorProvider` (temperature/fan queries, `Option<T>`-returning for graceful "unavailable")
+- [x] Sampling scheduler: configurable interval, adaptive slow-down when dashboard unfocused/minimized
+- [x] Rolling in-memory ring buffers for short-window history (per metric, per process/system series)
+- [x] Core unit tests (mocked backend implementing the traits)
 
 ## Phase 2 — Windows Backend
-- [ ] Process enumeration + per-process CPU/RAM via `NtQuerySystemInformation`(`SystemProcessInformation`) or `Toolhelp32Snapshot` + `GetProcessTimes`
-- [ ] Per-process disk I/O via `GetProcessIoCounters`
+- [x] Process enumeration + per-process CPU/RAM via `NtQuerySystemInformation`(`SystemProcessInformation`) or `Toolhelp32Snapshot` + `GetProcessTimes`
+- [x] Per-process disk I/O via `GetProcessIoCounters`
 - [ ] Per-process network attribution via IP Helper API (`GetExtendedTcpTable`/`GetExtendedUdpTable` owning-PID mapping) + periodic byte-counter deltas
 - [ ] Per-process GPU engine utilization + VRAM via PDH `GPU Engine`/`GPU Process Memory` counter sets (DXGI-backed, vendor-agnostic, Win10 1803+)
-- [ ] Process actions: kill (`TerminateProcess`), suspend/resume (`NtSuspendProcess`/`NtResumeProcess`), priority (`SetPriorityClass`), affinity (`SetProcessAffinityMask`)
-- [ ] UAC elevation manifest (`requireAdministrator`) wired into the Tauri/MSVC build; verify unelevated-launch fallback messaging
-- [ ] Unit/integration tests against a mockable Win32 boundary (CI-safe)
+- [x] Process actions: kill (`TerminateProcess`), suspend/resume (`NtSuspendProcess`/`NtResumeProcess`), priority (`SetPriorityClass`), affinity (`SetProcessAffinityMask`) (live-tested against a child process: kill, suspend, resume, priority)
+- [ ] UAC elevation manifest (`requireAdministrator`) wired into the Tauri/MSVC build; verify unelevated-launch fallback messaging (manifest embedded via `src-tauri/build.rs`; unelevated-launch messaging still pending)
+- [ ] Unit/integration tests against a mockable Win32 boundary (CI-safe) (partial: calc unit tests and live child-process tests; no mockable Win32 layer yet)
 
 ## Phase 3 — Linux Backend
-- [ ] Process enumeration + per-process CPU/RAM via `/proc/[pid]/stat`, `/proc/[pid]/status`
-- [ ] Per-process disk I/O via `/proc/[pid]/io`
+- [x] Process enumeration + per-process CPU/RAM via `/proc/[pid]/stat`, `/proc/[pid]/status` (compiled for Linux and parser-tested; not yet run on a Linux host)
+- [x] Per-process disk I/O via `/proc/[pid]/io`
 - [ ] Per-process network attribution via `/proc/net/{tcp,udp}` + `/proc/[pid]/fd` inode matching (nethogs-style)
 - [ ] Per-process GPU stats via DRM `fdinfo` (`/proc/[pid]/fdinfo/<gpu-fd>`, kernel 5.19+, driver-dependent) with system-wide sysfs fallback where unavailable
-- [ ] Process actions: kill (`SIGKILL`/`SIGTERM`), suspend/resume (`SIGSTOP`/`SIGCONT`), priority (`setpriority`/renice), affinity (`sched_setaffinity`)
+- [x] Process actions: kill (`SIGKILL`/`SIGTERM`), suspend/resume (`SIGSTOP`/`SIGCONT`), priority (`setpriority`/renice), affinity (`sched_setaffinity`) (via libc; not yet run on a Linux host)
 - [ ] Document/implement root-launch elevation path (run via `pkexec`/`sudo`; polkit policy file for GUI launch)
 - [ ] Verify behavior across at least one major distro (X11 + Wayland)
 
 ## Phase 4 — Hardware Sensors (Temperature & Fan)
-- [ ] Linux: read `lm-sensors`/`hwmon` sysfs (`/sys/class/hwmon/*`) for CPU/GPU temps + fan RPM
-- [ ] Windows: investigate safe access path (WMI `MSAcpi_ThermalZoneTemperature` first, evaluate a signed embedded-controller/SMBus driver approach — e.g. LibreHardwareMonitor-style — only if WMI proves insufficient; document the security/driver-signing tradeoffs either way)
-- [ ] Graceful "unavailable" state in the data model + UI when no safe sensor path exists for the current hardware/OS combo
-- [ ] Unit tests for parsing (hwmon) and mocked WMI responses
+- [x] Linux: read `lm-sensors`/`hwmon` sysfs (`/sys/class/hwmon/*`) for CPU/GPU temps + fan RPM (`LinuxSensors` reads hwmon; not yet run on a Linux host)
+- [ ] Windows: investigate safe access path (WMI `MSAcpi_ThermalZoneTemperature` first, evaluate a signed embedded-controller/SMBus driver approach — e.g. LibreHardwareMonitor-style — only if WMI proves insufficient; document the security/driver-signing tradeoffs either way) (stub reports unavailable; WMI not yet evaluated)
+- [ ] Graceful "unavailable" state in the data model + UI when no safe sensor path exists for the current hardware/OS combo (data model and IPC done; UI pending Phase 7)
+- [ ] Unit tests for parsing (hwmon) and mocked WMI responses (sysfs integer parsing tested; hwmon tree and WMI tests pending)
 
 ## Phase 5 — Process Actions & Smart Suggestions Engine
-- [ ] Wire kill/suspend/resume/priority/affinity actions from Phase 2/3 behind the `SystemMonitor` trait, with confirmation-required flag for destructive actions
-- [ ] Curated critical-process list (never-suggest: `csrss.exe`, `wininit.exe`, `services.exe`, `systemd`, `kthreadd`, etc. per-OS) enforced in the suggestion engine, not just the UI
-- [ ] Heuristic rules: sustained CPU/RAM/disk usage on a backgrounded (no visible/foreground window) or user-idle process over a rolling window
-- [ ] Suggestion model: rationale, affected process, recommended action, confidence; per-process "don't suggest again" override
-- [ ] Suggestion engine unit tests (fixture process histories → expected suggestions, critical-list never triggers)
+- [x] Wire kill/suspend/resume/priority/affinity actions from Phase 2/3 behind the `SystemMonitor` trait, with confirmation-required flag for destructive actions
+- [x] Curated critical-process list (never-suggest: `csrss.exe`, `wininit.exe`, `services.exe`, `systemd`, `kthreadd`, etc. per-OS) enforced in the suggestion engine, not just the UI
+- [ ] Heuristic rules: sustained CPU/RAM/disk usage on a backgrounded (no visible/foreground window) or user-idle process over a rolling window (user-idle condition pending)
+- [x] Suggestion model: rationale, affected process, recommended action, confidence; per-process "don't suggest again" override
+- [x] Suggestion engine unit tests (fixture process histories → expected suggestions, critical-list never triggers)
 
 ## Phase 6 — Tauri Shell & IPC Layer
-- [ ] Tauri app scaffold wired to `core` sampling scheduler
-- [ ] Event push from Rust sampling loop to frontend (Tauri events/channels) with throttling for high-process-count machines
-- [ ] Command layer for process actions + suggestion apply/dismiss
+- [x] Tauri app scaffold wired to `core` sampling scheduler
+- [x] Event push from Rust sampling loop to frontend (Tauri events/channels) with throttling for high-process-count machines
+- [x] Command layer for process actions + suggestion apply/dismiss
 - [ ] Multi-window support configured for overlay widgets (Phase 8)
-- [ ] IPC boundary tests (command validation, no arbitrary PID/action injection beyond intended surface)
+- [x] IPC boundary tests (command validation, no arbitrary PID/action injection beyond intended surface)
 
 ## Phase 7 — Widget Dashboard Frontend
-- [ ] App shell (Svelte + Vite), light/dark theme
-- [ ] `gridstack.js`-driven widget grid: add/remove/resize/rearrange
-- [ ] Save/load named dashboard layouts (JSON persisted to disk)
-- [ ] Widget: process list table (sortable/filterable/grouped, live CPU/GPU/RAM/Disk/Net columns + sparklines)
-- [ ] Widget: system CPU graph (total + per-core toggle)
-- [ ] Widget: RAM graph
-- [ ] Widget: GPU engine + VRAM graph
-- [ ] Widget: disk I/O graph (per-drive)
-- [ ] Widget: network I/O graph (up/down)
-- [ ] Widget: temperature/fan gauges (Phase 4 data, "unavailable" state handled in UI)
-- [ ] Widget palette/add-widget UI
+- [x] App shell (Svelte + Vite), light/dark theme
+- [x] `gridstack.js`-driven widget grid: add/remove/resize/rearrange (verified rendering in headless Edge; interactive drag and resize not yet exercised)
+- [x] Save/load named dashboard layouts (JSON persisted to disk) (stored by the backend in the app data folder; the last session autosaves)
+- [x] Widget: process list table (sortable/filterable/grouped, live CPU/GPU/RAM/Disk/Net columns + sparklines) (sortable and filterable; grouping, per-row sparklines and GPU/Net columns still to come)
+- [x] Widget: system CPU graph (total + per-core toggle) (total history graph; per-core shown as current bars, not history)
+- [x] Widget: RAM graph
+- [ ] Widget: GPU engine + VRAM graph (list of GPU-reporting processes only; no data source yet)
+- [ ] Widget: disk I/O graph (per-drive) (busiest processes by I/O; per-drive totals not yet provided)
+- [ ] Widget: network I/O graph (up/down) (shows unavailable state; no data source yet)
+- [x] Widget: temperature/fan gauges (Phase 4 data, "unavailable" state handled in UI) (shown as lists, not gauges)
+- [x] Widget palette/add-widget UI
 
 ## Phase 8 — Desktop Overlay Widgets & Tray
 - [ ] Pop-out action per widget → dedicated Tauri window (`decorations:false`, `alwaysOnTop:true`, `skipTaskbar:true`, transparent background)
@@ -141,15 +141,15 @@ Decisions locked in for this roadmap:
 - [ ] System tray icon with live mini CPU/RAM history graph + quick context menu (open dashboard, top processes, exit)
 
 ## Phase 9 — Smart Suggestions UI
-- [ ] Suggestions feed/panel (sorted by impact), rationale display per suggestion
-- [ ] One-click apply, with an extra confirmation step for destructive actions (kill)
-- [ ] Dismiss / "don't suggest again for this process" controls
+- [x] Suggestions feed/panel (sorted by impact), rationale display per suggestion
+- [ ] One-click apply, with an extra confirmation step for destructive actions (kill) (apply is one click; no destructive suggestions are generated yet, and the kill confirmation lives in the process table)
+- [ ] Dismiss / "don't suggest again for this process" controls (dismiss works; there is no UI yet to restore a dismissed process)
 - [ ] Safe/critical process list viewer + user override management (view only for critical list; opt-out per suggestion rule)
 
 ## Phase 10 — Archon Support (Design Only)
-- [ ] `docs/archon-design.md`: design for querying `tpt-archon-kernel` built-in telemetry + capability scheduler directly for zero-overhead, poll-free per-app resource metrics
-- [ ] Open Questions (pending tpt-archon team): telemetry subscription/query API shape, capability grant model for reading other apps' resource usage, mapping Archon's metrics to the existing `SystemMonitor` trait, process-action equivalents (suspend/kill) under Archon's capability model
-- [ ] Post-v1 `archon` Cargo feature flag plan (`ArchonSystemMonitor` stub, `is_available() -> false`, `Unsupported` errors until implemented)
+- [x] `docs/archon-design.md`: design for querying `tpt-archon-kernel` built-in telemetry + capability scheduler directly for zero-overhead, poll-free per-app resource metrics
+- [x] Open Questions (pending tpt-archon team): telemetry subscription/query API shape, capability grant model for reading other apps' resource usage, mapping Archon's metrics to the existing `SystemMonitor` trait, process-action equivalents (suspend/kill) under Archon's capability model (recorded in `docs/archon-design.md`; answers still needed from the Archon team)
+- [x] Post-v1 `archon` Cargo feature flag plan (`ArchonSystemMonitor` stub, `is_available() -> false`, `Unsupported` errors until implemented)
 
 ## Phase 11 — Performance & Polish
 - [ ] Profile the sampling loop itself (CPU/RAM footprint) — the monitor must not become the thing worth suspending
