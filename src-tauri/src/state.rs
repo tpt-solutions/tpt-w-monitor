@@ -84,6 +84,23 @@ impl<M: SystemMonitor> MonitorState<M> {
         self.latest.as_ref()
     }
 
+    /// Recent system CPU samples, oldest first, for the tray graph.
+    pub fn cpu_history(&self) -> Vec<f32> {
+        self.sampler.system_cpu_history().iter().copied().collect()
+    }
+
+    /// The `n` busiest processes in the latest frame, as (name, CPU percent).
+    pub fn top_processes(&self, n: usize) -> Vec<(String, f32)> {
+        let Some(frame) = self.latest.as_ref() else {
+            return Vec::new();
+        };
+        let mut all: Vec<(String, f32)> =
+            frame.snapshot.processes.iter().map(|p| (p.name.clone(), p.cpu_percent)).collect();
+        all.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        all.truncate(n);
+        all
+    }
+
     /// Time to wait before the next [`Self::tick`].
     pub fn next_interval(&self) -> Duration {
         self.sampler.next_interval()
@@ -130,5 +147,46 @@ impl<M: SystemMonitor> MonitorState<M> {
             .iter()
             .find(|p| p.pid == pid)
             .map(|p| p.name.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tpt_monitor_core::ProcessMetrics;
+    use tpt_monitor_core::mock::{MockMonitor, MockSensors};
+
+    #[test]
+    fn top_processes_are_sorted_and_limited() {
+        let mut mock = MockMonitor::new();
+        for (pid, name, cpu) in [(1, "idle.exe", 1.0), (2, "hot.exe", 80.0), (3, "warm.exe", 20.0)]
+        {
+            let mut p = ProcessMetrics::new(Pid(pid), name);
+            p.cpu_percent = cpu;
+            mock.processes.push(p);
+        }
+        let mut s = MonitorState::new(
+            mock,
+            CriticalList::windows_default(),
+            Box::new(MockSensors::default()),
+        );
+        assert!(s.top_processes(2).is_empty(), "no frame yet");
+        s.tick().unwrap();
+        let top = s.top_processes(2);
+        assert_eq!(top, vec![("hot.exe".to_string(), 80.0), ("warm.exe".to_string(), 20.0)]);
+    }
+
+    #[test]
+    fn cpu_history_grows_with_each_tick() {
+        let mut mock = MockMonitor::new();
+        mock.system.cpu_total_percent = 42.0;
+        let mut s = MonitorState::new(
+            mock,
+            CriticalList::windows_default(),
+            Box::new(MockSensors::default()),
+        );
+        s.tick().unwrap();
+        s.tick().unwrap();
+        assert_eq!(s.cpu_history(), vec![42.0, 42.0]);
     }
 }
