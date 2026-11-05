@@ -9,8 +9,12 @@
 
   let { onRemove, onPopOut }: WidgetProps = $props();
 
-  // Whole-machine totals are not provided yet, so this lists the busiest TCP processes.
-  // Only processes with traffic appear; UDP is not attributed on Windows yet.
+  // Whole-machine totals come from the interface counters (loopback excluded). Below them
+  // this lists the busiest TCP processes; only processes with traffic appear, and UDP is
+  // not attributed on Windows yet.
+  const totalUp = $derived(live.frame?.system.netUpBytesPerSec ?? null);
+  const totalDown = $derived(live.frame?.system.netDownBytesPerSec ?? null);
+
   const busiest = $derived(
     (live.frame?.processes ?? [])
       .filter((p) => p.netUpBytesPerSec !== null || p.netDownBytesPerSec !== null)
@@ -27,10 +31,19 @@
 </script>
 
 <WidgetCard title="Network" {onRemove} {onPopOut}>
-  {#if busiest.length === 0}
-    <p class="muted">No TCP traffic reported. Per-process network needs an elevated run on Windows, and UDP is not attributed yet.</p>
+  {#if totalUp !== null && totalDown !== null}
+    <ul class="readings">
+      <li><span>Total upload</span><strong>{formatRate(totalUp)}</strong></li>
+      <li><span>Total download</span><strong>{formatRate(totalDown)}</strong></li>
+    </ul>
   {:else}
-    <p class="muted">Busiest processes (TCP; totals to come)</p>
+    <p class="muted">Whole-machine totals appear from the second sample.</p>
+  {/if}
+
+  {#if busiest.length === 0}
+    <p class="muted">No TCP traffic reported per process. Per-process network needs an elevated run on Windows, and UDP is not attributed yet.</p>
+  {:else}
+    <p class="muted">Busiest processes (TCP)</p>
     <ul class="readings">
       {#each busiest as p (p.pid)}
         <li>
