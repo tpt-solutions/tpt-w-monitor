@@ -191,3 +191,10 @@ pub fn set_click_through(
 pub fn list_overlays(overlays: State<'_, OverlayState>) -> Vec<OverlayConfig> {
     lock_overlays(&overlays).list()
 }
+
+/// Whether this run is elevated, and the platform. Used by onboarding to explain what is
+/// visible on this machine.
+#[tauri::command]
+pub fn get_capabilities() -> crate::dto::CapabilitiesDto {
+    crate::dto::CapabilitiesDto { elevated: crate::platform_elevated(), platform: crate::PLATFORM }
+}

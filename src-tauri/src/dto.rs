@@ -359,3 +359,13 @@ mod tests {
         assert_eq!(json["workingSetBytes"], 0);
     }
 }
+
+/// What this run can see and do, shown during onboarding.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilitiesDto {
+    /// The app runs with administrator rights (Windows) or as root (Linux).
+    pub elevated: bool,
+    /// Platform name: "windows" or "linux".
+    pub platform: &'static str,
+}

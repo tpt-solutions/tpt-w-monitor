@@ -139,6 +139,7 @@ pub fn run() {
             commands::dismiss_suggestion,
             commands::restore_suggestion,
             commands::get_suggestion_settings,
+            commands::get_capabilities,
             commands::save_layout,
             commands::load_layout,
             commands::list_layouts,
@@ -198,5 +199,24 @@ fn sampling_loop(handle: tauri::AppHandle) {
             let _ = tray::update(&handles, &cpu, &memory, &top);
         }
         std::thread::sleep(wait.max(MIN_EMIT_INTERVAL));
+    }
+}
+
+/// Platform name reported to the frontend.
+#[cfg(windows)]
+pub const PLATFORM: &str = "windows";
+/// Platform name reported to the frontend.
+#[cfg(target_os = "linux")]
+pub const PLATFORM: &str = "linux";
+
+/// Whether this process is elevated on the current platform.
+pub fn platform_elevated() -> bool {
+    #[cfg(windows)]
+    {
+        tpt_monitor_platform_windows::is_elevated()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        tpt_monitor_platform_linux::is_elevated()
     }
 }
