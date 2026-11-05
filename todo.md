@@ -94,7 +94,7 @@ Decisions locked in for this roadmap:
 ## Phase 3 — Linux Backend
 - [x] Process enumeration + per-process CPU/RAM via `/proc/[pid]/stat`, `/proc/[pid]/status` (compiled for Linux and parser-tested; not yet run on a Linux host)
 - [x] Per-process disk I/O via `/proc/[pid]/io`
-- [ ] Per-process network attribution via `/proc/net/{tcp,udp}` + `/proc/[pid]/fd` inode matching (nethogs-style)
+- [ ] Per-process network attribution via `/proc/net/{tcp,udp}` + `/proc/[pid]/fd` inode matching (nethogs-style) (partial: whole-machine totals from /proc/net/dev are in, excluding loopback; per-process attribution is not)
 - [ ] Per-process GPU stats via DRM `fdinfo` (`/proc/[pid]/fdinfo/<gpu-fd>`, kernel 5.19+, driver-dependent) with system-wide sysfs fallback where unavailable
 - [x] Process actions: kill (`SIGKILL`/`SIGTERM`), suspend/resume (`SIGSTOP`/`SIGCONT`), priority (`setpriority`/renice), affinity (`sched_setaffinity`) (via libc; not yet run on a Linux host)
 - [ ] Document/implement root-launch elevation path (run via `pkexec`/`sudo`; polkit policy file for GUI launch)
@@ -129,7 +129,7 @@ Decisions locked in for this roadmap:
 - [x] Widget: RAM graph
 - [ ] Widget: GPU engine + VRAM graph (per-process GPU list is live; no graph yet)
 - [ ] Widget: disk I/O graph (per-drive) (busiest processes by I/O; per-drive totals not yet provided)
-- [ ] Widget: network I/O graph (up/down) (busiest TCP processes are live; no graph yet, and whole-machine totals are still missing)
+- [ ] Widget: network I/O graph (up/down) (whole-machine totals and busiest TCP processes are live; no graph yet)
 - [x] Widget: temperature/fan gauges (Phase 4 data, "unavailable" state handled in UI) (shown as lists, not gauges)
 - [x] Widget palette/add-widget UI
 
