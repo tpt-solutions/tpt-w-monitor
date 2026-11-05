@@ -184,3 +184,10 @@ fn user_idle_time_is_reported() {
     // as a value near 49 days. Anything under a day is plausible.
     assert!(idle < 86_400, "implausible idle time: {idle}s");
 }
+
+#[test]
+fn elevation_check_agrees_with_net_session() {
+    // `net session` succeeds only for administrators, so it is an independent oracle for
+    // the token check.
+    assert_eq!(tpt_monitor_platform_windows::is_elevated(), is_elevated());
+}

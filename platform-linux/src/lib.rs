@@ -19,4 +19,4 @@ pub mod parse;
 mod backend;
 
 #[cfg(target_os = "linux")]
-pub use backend::{LinuxMonitor, LinuxSensors};
+pub use backend::{LinuxMonitor, LinuxSensors, is_elevated};

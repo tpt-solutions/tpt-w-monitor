@@ -320,3 +320,9 @@ impl SensorProvider for LinuxSensors {
         )
     }
 }
+
+/// Whether the app runs as root (effective UID 0). Root can see and control every process.
+pub fn is_elevated() -> bool {
+    // SAFETY: geteuid takes no arguments and cannot fail.
+    unsafe { libc::geteuid() == 0 }
+}

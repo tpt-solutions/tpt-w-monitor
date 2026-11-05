@@ -102,6 +102,12 @@ impl WindowsMonitor {
     }
 }
 
+/// Whether the app runs elevated, which decides how much of the system it can see and
+/// control on Windows.
+pub fn is_elevated() -> bool {
+    sys::is_elevated()
+}
+
 impl SystemMonitor for WindowsMonitor {
     fn user_idle_secs(&self) -> Option<u64> {
         sys::user_idle_seconds()

@@ -22,6 +22,9 @@ use windows_sys::Win32::NetworkManagement::IpHelper::{
     TcpConnectionEstatsData,
 };
 use windows_sys::Win32::Networking::WinSock::AF_INET;
+use windows_sys::Win32::Security::{
+    GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
+};
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
@@ -37,6 +40,7 @@ use windows_sys::Win32::System::SystemInformation::GetTickCount64;
 use windows_sys::Win32::System::SystemInformation::{
     GetSystemInfo, GlobalMemoryStatusEx, MEMORYSTATUSEX, SYSTEM_INFO,
 };
+use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 use windows_sys::Win32::System::Threading::{
     GetProcessIoCounters, GetProcessTimes, IO_COUNTERS, OpenProcess, PROCESS_QUERY_INFORMATION,
     PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION, PROCESS_SUSPEND_RESUME,
@@ -611,4 +615,31 @@ pub fn user_idle_seconds() -> Option<u64> {
     // difference is taken in 32-bit arithmetic.
     let elapsed_ms = (now as u32).wrapping_sub(info.dwTime);
     Some(u64::from(elapsed_ms / 1000))
+}
+
+/// Whether this process runs elevated (administrator token). Most per-process metrics and
+/// actions on Windows depend on it.
+pub fn is_elevated() -> bool {
+    let mut token: HANDLE = std::ptr::null_mut();
+    // SAFETY: the current-process pseudo-handle needs no closing; `token` is a valid out-slot.
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        return false;
+    }
+    let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+    let mut returned: u32 = 0;
+    // SAFETY: `elevation` is a valid TOKEN_ELEVATION of the size passed; `token` is open.
+    let ok = unsafe {
+        GetTokenInformation(
+            token,
+            TokenElevation,
+            (&mut elevation as *mut TOKEN_ELEVATION).cast(),
+            size_of::<TOKEN_ELEVATION>() as u32,
+            &mut returned,
+        )
+    };
+    // SAFETY: the token handle was opened above and is closed exactly once here.
+    unsafe {
+        CloseHandle(token);
+    }
+    ok != 0 && elevation.TokenIsElevated != 0
 }
