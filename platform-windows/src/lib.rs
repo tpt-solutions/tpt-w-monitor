@@ -225,6 +225,10 @@ impl SystemMonitor for WindowsMonitor {
         Ok(system)
     }
 
+    fn process_name(&self, pid: Pid) -> Option<String> {
+        sys::image_file_name(pid)
+    }
+
     fn apply_action(&mut self, pid: Pid, action: ProcessAction) -> Result<()> {
         action.validate()?;
         match action {

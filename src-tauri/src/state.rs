@@ -127,6 +127,29 @@ impl<M: SystemMonitor> MonitorState<M> {
         self.sampler.scheduler_mut().set_view_state(view);
     }
 
+    /// Applies an action only if the PID still belongs to the executable the user saw.
+    ///
+    /// The name is read from the OS at the moment of the action, not from the last
+    /// snapshot, which can be a second old. A PID reused by another program in that window
+    /// is refused, and so is a process that can no longer be identified.
+    pub fn apply_action_checked(
+        &mut self,
+        pid: Pid,
+        expected_name: &str,
+        action: ProcessAction,
+        confirmed: bool,
+    ) -> Result<()> {
+        let current =
+            self.sampler.monitor().process_name(pid).ok_or(MonitorError::ProcessNotFound(pid))?;
+        let same_program = current.eq_ignore_ascii_case(expected_name.trim());
+        if !same_program {
+            return Err(MonitorError::InvalidAction(
+                "the process changed since it was listed; refresh the list and try again",
+            ));
+        }
+        self.apply_action(pid, action, confirmed)
+    }
+
     /// Validates and applies an action requested over IPC.
     pub fn apply_action(&mut self, pid: Pid, action: ProcessAction, confirmed: bool) -> Result<()> {
         action.validate()?;

@@ -40,6 +40,7 @@ use windows_sys::Win32::System::SystemInformation::GetTickCount64;
 use windows_sys::Win32::System::SystemInformation::{
     GetSystemInfo, GlobalMemoryStatusEx, MEMORYSTATUSEX, SYSTEM_INFO,
 };
+use windows_sys::Win32::System::Threading::QueryFullProcessImageNameW;
 use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 use windows_sys::Win32::System::Threading::{
     GetProcessIoCounters, GetProcessTimes, IO_COUNTERS, OpenProcess, PROCESS_QUERY_INFORMATION,
@@ -667,4 +668,19 @@ pub fn interface_octets() -> Result<Vec<(u32, u64, u64)>, MonitorError> {
         FreeMibTable(table.cast());
     }
     Ok(rows)
+}
+
+/// The executable file name of a process, from `QueryFullProcessImageNameW`. Needs only
+/// limited query rights, so it works for most processes an unelevated run can see.
+pub fn image_file_name(pid: Pid) -> Option<String> {
+    let handle = open(pid, PROCESS_QUERY_LIMITED_INFORMATION).ok()?;
+    let mut buf = vec![0u16; 1024];
+    let mut len = buf.len() as u32;
+    // SAFETY: `buf` provides `len` writable UTF-16 units, and `len` holds that capacity.
+    let ok = unsafe { QueryFullProcessImageNameW(handle.raw, 0, buf.as_mut_ptr(), &mut len) };
+    if ok == 0 {
+        return None;
+    }
+    let path = String::from_utf16_lossy(&buf[..len as usize]);
+    path.rsplit(['\\', '/']).next().map(str::to_string)
 }

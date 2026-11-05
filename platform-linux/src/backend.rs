@@ -202,6 +202,10 @@ impl SystemMonitor for LinuxMonitor {
         Ok(system)
     }
 
+    fn process_name(&self, pid: Pid) -> Option<String> {
+        fs::read_to_string(format!("/proc/{}/comm", pid.0)).ok().map(|s| s.trim().to_string())
+    }
+
     fn apply_action(&mut self, pid: Pid, action: ProcessAction) -> Result<()> {
         action.validate()?;
         let raw = pid.0 as libc::pid_t;

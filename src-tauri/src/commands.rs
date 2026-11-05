@@ -35,9 +35,12 @@ pub fn apply_action(
     pid: u32,
     action: ActionDto,
     confirmed: bool,
+    process_name: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    lock(&state).apply_action(Pid(pid), action.into(), confirmed).map_err(|e| e.to_string())
+    lock(&state)
+        .apply_action_checked(Pid(pid), &process_name, action.into(), confirmed)
+        .map_err(|e| e.to_string())
 }
 
 /// Tells the sampler what the user can see.

@@ -25,8 +25,8 @@ export interface DockRequest {
 
 export const ipc = {
   getFrame: () => invoke<FrameDto | null>('get_frame'),
-  applyAction: (pid: number, action: ActionDto, confirmed: boolean) =>
-    invoke<void>('apply_action', { pid, action, confirmed }),
+  applyAction: (pid: number, action: ActionDto, confirmed: boolean, processName: string) =>
+    invoke<void>('apply_action', { pid, action, confirmed, processName }),
   setViewState: (view: ViewDto) => invoke<void>('set_view_state', { view }),
   dismissSuggestion: (processName: string) => invoke<void>('dismiss_suggestion', { processName }),
   restoreSuggestion: (processName: string) => invoke<void>('restore_suggestion', { processName }),

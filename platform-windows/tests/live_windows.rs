@@ -202,3 +202,14 @@ fn whole_machine_network_totals_appear_from_the_second_sample() {
     assert!(second.net_up_bytes_per_sec.is_some());
     assert!(second.net_down_bytes_per_sec.is_some());
 }
+
+#[test]
+fn process_name_is_read_from_the_os_for_a_child() {
+    use tpt_monitor_core::SystemMonitor;
+    let mut child = spawn_sleeper();
+    let monitor = WindowsMonitor::new();
+    let name = monitor.process_name(Pid(child.id()));
+    let _ = child.kill();
+    let _ = child.wait();
+    assert_eq!(name.as_deref().map(str::to_ascii_lowercase).as_deref(), Some("ping.exe"));
+}

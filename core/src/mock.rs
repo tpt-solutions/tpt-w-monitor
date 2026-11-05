@@ -51,6 +51,10 @@ impl SystemMonitor for MockMonitor {
         Ok(self.system.clone())
     }
 
+    fn process_name(&self, pid: Pid) -> Option<String> {
+        self.processes.iter().find(|p| p.pid == pid).map(|p| p.name.clone())
+    }
+
     fn apply_action(&mut self, pid: Pid, action: ProcessAction) -> Result<()> {
         if let Some(err) = &self.fail_actions_with {
             return Err(err.clone());

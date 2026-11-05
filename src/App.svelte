@@ -123,6 +123,8 @@
 
     // An overlay's dock button sends its widget back to the grid.
     void onDockRequest(({ kind }) => {
+      // The payload comes from another window, so it is checked before use.
+      if (!(WIDGET_KINDS as readonly string[]).includes(kind)) return;
       if (dashboard?.add(kind)) notify(`${WIDGET_INFO[kind].title} is back on the dashboard.`);
       else notify('Widget limit reached. Remove one before docking another.');
     }).then((stop) => {

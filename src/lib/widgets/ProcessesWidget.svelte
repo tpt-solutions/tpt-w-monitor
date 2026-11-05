@@ -85,21 +85,21 @@
   }
 
   async function suspend(p: ProcessDto) {
-    await runAction(p.pid, { kind: 'suspend' });
+    await runAction(p.pid, p.name, { kind: 'suspend' });
   }
 
   async function resume(p: ProcessDto) {
-    await runAction(p.pid, { kind: 'resume' });
+    await runAction(p.pid, p.name, { kind: 'resume' });
   }
 
   async function setPriority(p: ProcessDto, priority: PriorityDto) {
-    await runAction(p.pid, { kind: 'set_priority', priority });
+    await runAction(p.pid, p.name, { kind: 'set_priority', priority });
   }
 
   async function confirmKill() {
     const target = pendingKill;
     pendingKill = null;
-    if (target) await runAction(target.pid, { kind: 'kill' }, true);
+    if (target) await runAction(target.pid, target.name, { kind: 'kill' }, true);
   }
 </script>
 

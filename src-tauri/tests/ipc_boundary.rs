@@ -147,3 +147,31 @@ fn user_protected_process_is_refused_for_kill_even_when_confirmed() {
     assert!(s.unprotect_process("mine.exe"));
     assert!(s.apply_action(Pid(400), ProcessAction::Kill, true).is_ok());
 }
+
+#[test]
+fn action_is_refused_when_the_pid_now_belongs_to_another_program() {
+    let mut s = state_with(vec![proc(500, "app.exe", 1.0, true)]);
+    s.tick().unwrap();
+    let err =
+        s.apply_action_checked(Pid(500), "other.exe", ProcessAction::Suspend, false).unwrap_err();
+    assert!(matches!(err, MonitorError::InvalidAction(_)));
+    // Refused before any backend call: nothing was suspended.
+    assert!(s.monitor_mut().applied.is_empty());
+}
+
+#[test]
+fn action_name_check_ignores_case_and_surrounding_space() {
+    let mut s = state_with(vec![proc(501, "app.exe", 1.0, true)]);
+    s.tick().unwrap();
+    assert!(s.apply_action_checked(Pid(501), "  APP.exe ", ProcessAction::Suspend, false).is_ok());
+}
+
+#[test]
+fn action_is_refused_for_a_process_that_can_no_longer_be_identified() {
+    let mut s = state_with(vec![proc(502, "app.exe", 1.0, true)]);
+    s.tick().unwrap();
+    s.monitor_mut().processes.clear();
+    let err =
+        s.apply_action_checked(Pid(502), "app.exe", ProcessAction::Suspend, false).unwrap_err();
+    assert_eq!(err, MonitorError::ProcessNotFound(Pid(502)));
+}

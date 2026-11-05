@@ -27,8 +27,8 @@
     }
   }
 
-  async function apply(pid: number, action: (typeof suggestions)[number]['recommendedAction']) {
-    await runAction(pid, action, false);
+  async function apply(pid: number, name: string, action: (typeof suggestions)[number]['recommendedAction']) {
+    await runAction(pid, name, action, false);
   }
 
   async function dismiss(name: string) {
@@ -87,7 +87,7 @@
           <p class="rationale">{s.rationale}</p>
           <p class="muted small">Confidence {formatPercent(s.confidence * 100)}</p>
           <div class="row-actions">
-            <button type="button" onclick={() => apply(s.pid, s.recommendedAction)}>Apply</button>
+            <button type="button" onclick={() => apply(s.pid, s.processName, s.recommendedAction)}>Apply</button>
             <button type="button" onclick={() => dismiss(s.processName)}>Don't suggest again</button>
           </div>
         </li>

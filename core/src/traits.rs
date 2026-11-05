@@ -25,6 +25,13 @@ pub trait SystemMonitor {
         None
     }
 
+    /// The executable name of `pid` read from the OS right now, not from the last snapshot.
+    /// `None` when the process is gone or the platform cannot tell. Destructive actions
+    /// use it to confirm the PID still belongs to the program the user saw.
+    fn process_name(&self, _pid: Pid) -> Option<String> {
+        None
+    }
+
     /// Samples metrics for every visible process.
     fn sample_processes(&mut self) -> Result<Vec<ProcessMetrics>>;
 
