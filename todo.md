@@ -144,7 +144,7 @@ Decisions locked in for this roadmap:
 - [x] Suggestions feed/panel (sorted by impact), rationale display per suggestion
 - [ ] One-click apply, with an extra confirmation step for destructive actions (kill) (apply is one click; no destructive suggestions are generated yet, and the kill confirmation lives in the process table)
 - [x] Dismiss / "don't suggest again for this process" controls (dismiss and restore both work from the Suggestions widget)
-- [ ] Safe/critical process list viewer + user override management (view only for critical list; opt-out per suggestion rule) (read-only viewer is in the Suggestions widget; override management is not) Recommended: user additions only (never removals), so the default protection cannot be weakened.
+- [ ] Safe/critical process list viewer + user override management (view only for critical list; opt-out per suggestion rule) (viewer and user additions are in: names can be added, and only user-added names can be removed; built-in names are fixed; per-rule opt-out is not built yet)
 
 ## Phase 10 — Archon Support (Design Only)
 - [x] `docs/archon-design.md`: design for querying `tpt-archon-kernel` built-in telemetry + capability scheduler directly for zero-overhead, poll-free per-app resource metrics
