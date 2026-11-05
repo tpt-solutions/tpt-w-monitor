@@ -7,7 +7,7 @@ it suggests what you might close or slow down. It never changes anything on its 
 
 ### Windows
 
-1. Run the installer. It is not yet published; see the release notes when it is.
+1. Run the installer. It is not yet published; see the release notes when it is. The installer is not code-signed, so Windows may show an "unknown publisher" warning. Check that the download came from the project's GitHub releases page before you run it.
 2. Start tpt-monitor. Windows asks for administrator rights. Accept them to see every
    process, its network traffic, and its GPU use, and to be able to change processes.
 3. If you decline, the app still runs. A card on the dashboard says what is hidden. You

@@ -13,4 +13,4 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 authors = ["TPT Solutions"]
-repository = "https://github.com/tpt-solutions/tpt-monitor"
+repository = "https://github.com/tpt-solutions/tpt-w-monitor"

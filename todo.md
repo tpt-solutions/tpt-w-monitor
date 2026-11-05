@@ -72,7 +72,7 @@ Decisions locked in for this roadmap:
 - [x] TypeScript config (tsconfig, Vite, Svelte), add `gridstack.js` dependency
 - [x] `README.md` (from spec.txt), build instructions, license badges
 - [x] Set up CI (GitHub Actions, build+lint+test on Windows + Linux runners) (workflow in `.github/workflows/ci.yml`; not yet run on GitHub)
-- [ ] Repo hosting under `tpt-solutions` GitHub org
+- [x] Repo hosting under `tpt-solutions` GitHub org: https://github.com/tpt-solutions/tpt-w-monitor (public; the CI workflow runs there)
 
 ## Phase 1 — Core Data Model & Metrics Engine
 - [x] Process/resource data model: per-process CPU%, RAM (working set/private/commit), GPU engine %/VRAM, disk read/write bytes+rate, network up/down rate; system-wide aggregates and per-core/per-drive/per-adapter breakdowns
@@ -169,7 +169,7 @@ Decisions locked in for this roadmap:
 
 ## Phase 13 — Release v1
 - [x] Finalize versioning scheme (SemVer) and changelog process (docs/versioning.md and CHANGELOG.md; the release script that checks the three version strings is not written yet)
-- [ ] Windows installer (MSI/NSIS via Tauri bundler) with UAC manifest embedded, code-signing decision (manifest and bundle settings exist in src-tauri/tauri.conf.json; no installer built yet)
+- [ ] Windows installer (MSI/NSIS via Tauri bundler) with UAC manifest embedded, no code signing for v1 (decided) (manifest and bundle settings exist in src-tauri/tauri.conf.json; no installer built yet)
 - [ ] Linux packaging (.deb/.rpm/AppImage via Tauri bundler), documented elevation launch path (polkit/pkexec)
 - [ ] Publish LICENSE files + notices in release artifacts
 - [x] User-facing docs (install guide, widget/overlay guide, suggestions safety explainer) (docs/user-guide.md covers install, widgets, overlays, suggestions and their safety; the installers themselves are not built)
@@ -199,6 +199,8 @@ Decisions taken during development, with the reason. Change one by editing it he
 - **Disk suggestion rule:** on, and it recommends suspend. Suspending stops the I/O and can be reversed. Threshold 5 MiB/s, sustained for 80% of a 30-sample window.
 - **RAM suggestion rule:** deferred. No reversible action frees memory; suspending keeps it resident. Revisit if a reversible trim-working-set action is added.
 - **Critical list:** built-in names are fixed. Users may add names, and only names they added can be removed, so the default protection cannot be weakened.
+- **Code signing:** not for v1. Windows will show an unknown-publisher warning, which is documented in the user guide. Revisit if downloads need a trusted publisher.
+- **Repository:** https://github.com/tpt-solutions/tpt-w-monitor.
 - **Idle time:** 5 minutes without input counts as idle (Windows only). Unknown idle time counts as active, so nothing is suggested by default.
 - **Per-process TCP traffic:** TCP only, from ESTATS counters, which need elevation. UDP has no byte counters and is not attributed.
 - **Unavailable metrics:** shown as unavailable, never as zero. A process reads zero only when the source was readable and it had no activity.

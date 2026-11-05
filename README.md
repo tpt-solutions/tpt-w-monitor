@@ -58,7 +58,7 @@ Requirements:
 - Node.js 20.19+ or 22.12+ with npm (Vite 8 requires it)
 
 ```sh
-git clone https://github.com/tpt-solutions/tpt-monitor
+git clone https://github.com/tpt-solutions/tpt-w-monitor
 cd tpt-monitor
 cargo test --workspace
 npm install
