@@ -5,7 +5,7 @@
 resolver = "3"
 # Members are added as they are built: platform-windows/, platform-linux/ and
 # src-tauri/ join once their phases start (see todo.md).
-members = ["core", "platform-windows"]
+members = ["core", "platform-windows", "platform-linux"]
 
 [workspace.package]
 version = "0.1.0"
