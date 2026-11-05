@@ -96,4 +96,5 @@ export interface OverlayDto {
 export interface SuggestionSettingsDto {
   dismissed: string[];
   protected: string[];
+  userProtected: string[];
 }

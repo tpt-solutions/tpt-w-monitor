@@ -40,6 +40,29 @@
     }
   }
 
+  let newProtected = $state('');
+
+  async function protect() {
+    const name = newProtected.trim();
+    if (name === '') return;
+    try {
+      await ipc.addProtected(name);
+      newProtected = '';
+      await refresh();
+    } catch (error) {
+      notify(`Could not protect: ${String(error)}`);
+    }
+  }
+
+  async function unprotect(name: string) {
+    try {
+      await ipc.removeProtected(name);
+      await refresh();
+    } catch (error) {
+      notify(`Could not remove: ${String(error)}`);
+    }
+  }
+
   async function restore(name: string) {
     try {
       await ipc.restoreSuggestion(name);
@@ -90,14 +113,23 @@
 
   <details class="settings">
     <summary>Protected processes ({settings?.protected.length ?? 0})</summary>
-    <p class="muted small">Never suggested for suspension or priority changes, and refused for kill or suspend even when you ask.</p>
+    <p class="muted small">Never suggested for suspension or priority changes, and refused for kill or suspend even when you ask. You can add names; only names you added can be removed.</p>
     {#if settings}
       <ul class="protected">
         {#each settings.protected as name (name)}
-          <li>{name}</li>
+          <li>
+            <span>{name}</span>
+            {#if settings.userProtected.includes(name)}
+              <button type="button" onclick={() => unprotect(name)} aria-label="Remove protection for {name}">Remove</button>
+            {/if}
+          </li>
         {/each}
       </ul>
     {/if}
+    <form class="row-actions" onsubmit={(e) => { e.preventDefault(); void protect(); }}>
+      <input type="text" placeholder="executable.exe" aria-label="Process name to protect" bind:value={newProtected} maxlength="64" />
+      <button type="submit">Protect</button>
+    </form>
   </details>
 </WidgetCard>
 

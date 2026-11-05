@@ -43,6 +43,8 @@ export const ipc = {
   listOverlays: () => invoke<OverlayDto[]>('list_overlays'),
   getSuggestionSettings: () => invoke<SuggestionSettingsDto>('get_suggestion_settings'),
   getCapabilities: () => invoke<CapabilitiesDto>('get_capabilities'),
+  addProtected: (name: string) => invoke<void>('add_protected', { name }),
+  removeProtected: (name: string) => invoke<void>('remove_protected', { name }),
 };
 
 /** Subscribes to pushed frames. Resolves to the unsubscribe function. */
