@@ -32,6 +32,8 @@ pub struct LinuxMonitor {
     prev_cpu: Option<parse::CpuTimes>,
     /// Last whole-machine `(received, transmitted)` totals and when they were read.
     prev_net: Option<((u64, u64), Instant)>,
+    /// Last busy-time reading per (pid, engine), for GPU utilisation.
+    prev_gpu: HashMap<(u32, String), u64>,
 }
 
 impl Default for LinuxMonitor {
@@ -54,6 +56,7 @@ impl LinuxMonitor {
             prev_processes: HashMap::new(),
             prev_cpu: None,
             prev_net: None,
+            prev_gpu: HashMap::new(),
         }
     }
 
@@ -61,6 +64,19 @@ impl LinuxMonitor {
     pub fn logical_cores(&self) -> usize {
         self.cores
     }
+}
+
+/// The DRM clients a process holds, read from its `fdinfo` entries. `None` when the process
+/// cannot be listed; an empty list when it has no DRM descriptors.
+fn read_drm_clients(pid: u32) -> Option<Vec<parse::DrmClient>> {
+    let entries = fs::read_dir(format!("/proc/{pid}/fdinfo")).ok()?;
+    Some(
+        entries
+            .filter_map(|e| e.ok())
+            .filter_map(|e| fs::read_to_string(e.path()).ok())
+            .filter_map(|text| parse::parse_drm_fdinfo(&text))
+            .collect(),
+    )
 }
 
 /// Converts a tick delta into whole-machine percent.
@@ -93,6 +109,7 @@ impl SystemMonitor for LinuxMonitor {
         let elapsed = self.last_sample.map(|t| now.duration_since(t));
         let mut next = HashMap::new();
         let mut out = Vec::new();
+        let mut drm_map: HashMap<u32, Vec<parse::DrmClient>> = HashMap::new();
 
         for raw_pid in list_pids()? {
             // The process may exit between readdir and read; skip it silently.
@@ -136,6 +153,9 @@ impl SystemMonitor for LinuxMonitor {
                     Some(rate(write.saturating_sub(prev_io.1), elapsed));
             }
 
+            if let Some(clients) = read_drm_clients(raw_pid) {
+                drm_map.insert(raw_pid, clients);
+            }
             if let Ok(text) = fs::read_to_string(format!("/proc/{raw_pid}/status")) {
                 let status = parse::parse_proc_status(&text);
                 metrics.memory.working_set_bytes = status.rss_bytes;
@@ -148,6 +168,33 @@ impl SystemMonitor for LinuxMonitor {
                 PrevProcess { start_ticks: stat.start_ticks, busy_ticks: stat.busy_ticks, io },
             );
             out.push(metrics);
+        }
+
+        // GPU use: only when the system exposes DRM clients at all. Then every process
+        // gets a value, and a process with no GPU clients reads zero.
+        let system_has_drm = !drm_map.is_empty();
+        let mut next_gpu = HashMap::new();
+        let mut gpu_by_pid: HashMap<u32, (f32, u64)> = HashMap::new();
+        for (pid, clients) in &drm_map {
+            let (engines, vram) = parse::aggregate_clients(clients);
+            let mut percent = 0.0f32;
+            for (engine, now_ns) in &engines {
+                let key = (*pid, engine.clone());
+                if let (Some(previous), Some(elapsed)) = (self.prev_gpu.get(&key), elapsed) {
+                    let p = parse::engine_percent(*previous, *now_ns, elapsed.as_nanos() as u64);
+                    percent = percent.max(p);
+                }
+                next_gpu.insert(key, *now_ns);
+            }
+            gpu_by_pid.insert(*pid, (percent, vram.unwrap_or(0)));
+        }
+        self.prev_gpu = next_gpu;
+        if system_has_drm {
+            for metrics in &mut out {
+                let (percent, vram) = gpu_by_pid.get(&metrics.pid.0).copied().unwrap_or((0.0, 0));
+                metrics.gpu_engine_percent = Some(percent);
+                metrics.vram_bytes = Some(vram);
+            }
         }
 
         self.prev_processes = next;

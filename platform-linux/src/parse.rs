@@ -250,3 +250,151 @@ mod tests {
         assert_eq!(parse_sysfs_int("garbage"), None);
     }
 }
+
+/// One DRM client seen through a file descriptor, from `/proc/<pid>/fdinfo/<fd>`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DrmClient {
+    /// `drm-client-id`. A client can appear through several descriptors, so this is the
+    /// key used to count it once.
+    pub client_id: Option<u64>,
+    /// Cumulative busy time per engine, nanoseconds, as `(engine name, ns)`.
+    pub engines: Vec<(String, u64)>,
+    /// `drm-memory-vram` in bytes, when the driver reports it.
+    pub vram_bytes: Option<u64>,
+}
+
+/// Parses one `fdinfo` file. Returns `None` for descriptors that are not DRM (no
+/// `drm-driver` line), so ordinary files are ignored cheaply.
+///
+/// Lines look like `drm-engine-gfx:  1234567 ns` and `drm-memory-vram:  4096 KiB`.
+/// Unknown lines and units are skipped rather than guessed.
+pub fn parse_drm_fdinfo(text: &str) -> Option<DrmClient> {
+    let mut is_drm = false;
+    let mut client = DrmClient::default();
+    for line in text.lines() {
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        let key = key.trim();
+        let value = value.trim();
+        if key == "drm-driver" {
+            is_drm = true;
+        } else if key == "drm-client-id" {
+            client.client_id = value.parse().ok();
+        } else if let Some(engine) = key.strip_prefix("drm-engine-") {
+            if let Some(ns) = value.strip_suffix("ns").and_then(|n| n.trim().parse::<u64>().ok()) {
+                client.engines.push((engine.to_string(), ns));
+            }
+        } else if key == "drm-memory-vram" {
+            client.vram_bytes = parse_memory(value);
+        }
+    }
+    is_drm.then_some(client)
+}
+
+/// `"4096 KiB"`, `"2 MiB"`, `"512 B"` or a bare number, as bytes.
+fn parse_memory(value: &str) -> Option<u64> {
+    let mut parts = value.split_whitespace();
+    let number: u64 = parts.next()?.parse().ok()?;
+    let scale = match parts.next() {
+        None | Some("B") => 1,
+        Some("KiB") => 1024,
+        Some("MiB") => 1024 * 1024,
+        Some("GiB") => 1024 * 1024 * 1024,
+        Some(_) => return None,
+    };
+    Some(number.saturating_mul(scale))
+}
+
+/// Totals for one process: busy time per engine and VRAM, each client counted once.
+pub fn aggregate_clients(clients: &[DrmClient]) -> (Vec<(String, u64)>, Option<u64>) {
+    let mut seen = std::collections::HashSet::new();
+    let mut engines: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
+    let mut vram: Option<u64> = None;
+    for client in clients {
+        // A client without an id cannot be matched, so each descriptor is counted.
+        if let Some(id) = client.client_id {
+            if !seen.insert(id) {
+                continue;
+            }
+        }
+        for (name, ns) in &client.engines {
+            let slot = engines.entry(name.clone()).or_insert(0);
+            *slot = slot.saturating_add(*ns);
+        }
+        if let Some(v) = client.vram_bytes {
+            vram = Some(vram.unwrap_or(0).saturating_add(v));
+        }
+    }
+    (engines.into_iter().collect(), vram)
+}
+
+/// Utilisation percent from two engine-time readings taken `elapsed_ns` apart. Values are
+/// clamped to 0..=100, and a counter that moved backwards reads zero.
+pub fn engine_percent(previous_ns: u64, now_ns: u64, elapsed_ns: u64) -> f32 {
+    if elapsed_ns == 0 {
+        return 0.0;
+    }
+    let busy = now_ns.saturating_sub(previous_ns) as f64;
+    (busy / elapsed_ns as f64 * 100.0).clamp(0.0, 100.0) as f32
+}
+
+#[cfg(test)]
+mod drm_tests {
+    use super::*;
+
+    const DRM_FD: &str = "pos:\t0\nflags:\t02000002\ndrm-driver:\tamdgpu\ndrm-client-id:\t42\ndrm-engine-gfx:\t5000000 ns\ndrm-engine-compute:\t1000000 ns\ndrm-memory-vram:\t4096 KiB\n";
+
+    #[test]
+    fn drm_descriptor_is_parsed() {
+        let c = parse_drm_fdinfo(DRM_FD).unwrap();
+        assert_eq!(c.client_id, Some(42));
+        assert_eq!(
+            c.engines,
+            vec![("gfx".to_string(), 5_000_000), ("compute".to_string(), 1_000_000)]
+        );
+        assert_eq!(c.vram_bytes, Some(4096 * 1024));
+    }
+
+    #[test]
+    fn ordinary_file_descriptor_is_ignored() {
+        assert_eq!(parse_drm_fdinfo("pos:\t0\nflags:\t0100002\n"), None);
+    }
+
+    #[test]
+    fn memory_units_convert_to_bytes_and_unknown_units_are_skipped() {
+        assert_eq!(parse_memory("2 MiB"), Some(2 * 1024 * 1024));
+        assert_eq!(parse_memory("512"), Some(512));
+        assert_eq!(parse_memory("3 furlongs"), None);
+    }
+
+    #[test]
+    fn a_client_seen_through_two_descriptors_is_counted_once() {
+        let a = parse_drm_fdinfo(DRM_FD).unwrap();
+        let b = parse_drm_fdinfo(DRM_FD).unwrap();
+        let (engines, vram) = aggregate_clients(&[a, b]);
+        assert_eq!(
+            engines,
+            vec![("compute".to_string(), 1_000_000), ("gfx".to_string(), 5_000_000)]
+        );
+        assert_eq!(vram, Some(4096 * 1024));
+    }
+
+    #[test]
+    fn two_different_clients_add_up() {
+        let a = parse_drm_fdinfo(DRM_FD).unwrap();
+        let mut b = parse_drm_fdinfo(DRM_FD).unwrap();
+        b.client_id = Some(43);
+        let (engines, vram) = aggregate_clients(&[a, b]);
+        assert_eq!(engines[1], ("gfx".to_string(), 10_000_000));
+        assert_eq!(vram, Some(2 * 4096 * 1024));
+    }
+
+    #[test]
+    fn utilisation_is_busy_time_over_wall_time_and_clamped() {
+        assert_eq!(engine_percent(0, 500, 1000), 50.0);
+        assert_eq!(engine_percent(0, 5000, 1000), 100.0);
+        assert_eq!(engine_percent(900, 100, 1000), 0.0, "counter went backwards");
+        assert_eq!(engine_percent(0, 1, 0), 0.0, "no elapsed time");
+    }
+}
