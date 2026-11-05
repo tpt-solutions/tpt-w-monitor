@@ -160,6 +160,17 @@ pub enum PriorityDto {
     High,
 }
 
+/// Suggestion settings shown in the dashboard: what the user dismissed, and which
+/// processes are protected from suggestions and disruptive actions.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SuggestionSettingsDto {
+    /// Executables whose suggestions were dismissed.
+    pub dismissed: Vec<String>,
+    /// Protected system processes, lowercase.
+    pub protected: Vec<String>,
+}
+
 /// Dashboard visibility, sent by the frontend.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

@@ -9,7 +9,7 @@ use std::sync::MutexGuard;
 use tauri::{Manager, State};
 use tpt_monitor_core::Pid;
 
-use crate::dto::{ActionDto, FrameDto, ViewDto};
+use crate::dto::{ActionDto, FrameDto, SuggestionSettingsDto, ViewDto};
 use crate::overlays::{
     OverlayConfig, OverlayStore, clamp_opacity, clamp_size, validate_id, validate_kind,
 };
@@ -50,6 +50,16 @@ pub fn set_view_state(view: ViewDto, state: State<'_, AppState>) {
 #[tauri::command]
 pub fn dismiss_suggestion(process_name: String, state: State<'_, AppState>) {
     lock(&state).dismiss_suggestion(&process_name);
+}
+
+/// What suggestions have been dismissed, and which processes are protected.
+#[tauri::command]
+pub fn get_suggestion_settings(state: State<'_, AppState>) -> SuggestionSettingsDto {
+    let guard = lock(&state);
+    SuggestionSettingsDto {
+        dismissed: guard.dismissed_suggestions(),
+        protected: guard.protected_processes(),
+    }
 }
 
 /// Re-enables suggestions for an executable.

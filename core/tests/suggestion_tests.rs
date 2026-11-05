@@ -145,3 +145,19 @@ fn kill_is_never_recommended() {
         assert!(!s.recommended_action.requires_confirmation());
     }
 }
+
+#[test]
+fn dismissed_names_are_listed_sorted_and_restorable() {
+    let mut e = engine();
+    e.dismiss("Zeta.exe");
+    e.dismiss("alpha.exe");
+    assert_eq!(e.dismissed_names(), vec!["alpha.exe", "zeta.exe"]);
+    e.restore("ALPHA.exe");
+    assert_eq!(e.dismissed_names(), vec!["zeta.exe"]);
+}
+
+#[test]
+fn critical_names_are_listed_sorted_and_lowercase() {
+    let list = CriticalList::new(["Services.exe", "csrss.exe"]);
+    assert_eq!(list.names(), vec!["csrss.exe", "services.exe"]);
+}

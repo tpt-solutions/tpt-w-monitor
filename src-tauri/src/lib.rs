@@ -138,6 +138,7 @@ pub fn run() {
             commands::set_view_state,
             commands::dismiss_suggestion,
             commands::restore_suggestion,
+            commands::get_suggestion_settings,
             commands::save_layout,
             commands::load_layout,
             commands::list_layouts,
@@ -175,24 +176,26 @@ pub fn run() {
 fn sampling_loop(handle: tauri::AppHandle) {
     loop {
         let state = handle.state::<AppState>();
-        let (frame, cpu, top, wait) = {
+        let (frame, cpu, memory, top, wait) = {
             let mut guard = state.lock().unwrap_or_else(|p| p.into_inner());
-            let (frame, cpu, top) = match guard.tick() {
+            match guard.tick() {
                 Ok(frame) => {
-                    (Some(FrameDto::from(frame)), guard.cpu_history(), guard.top_processes(3))
+                    let frame = FrameDto::from(frame);
+                    let series =
+                        (guard.cpu_history(), guard.memory_history(), guard.top_processes(3));
+                    (Some(frame), series.0, series.1, series.2, guard.next_interval())
                 }
                 Err(err) => {
                     eprintln!("sampling failed: {err}");
-                    (None, Vec::new(), Vec::new())
+                    (None, Vec::new(), Vec::new(), Vec::new(), guard.next_interval())
                 }
-            };
-            (frame, cpu, top, guard.next_interval())
+            }
         };
         if let Some(frame) = frame {
             let _ = handle.emit("metrics", frame);
         }
         if let Some(handles) = handle.try_state::<tray::TrayHandles>() {
-            let _ = tray::update(&handles, &cpu, &top);
+            let _ = tray::update(&handles, &cpu, &memory, &top);
         }
         std::thread::sleep(wait.max(MIN_EMIT_INTERVAL));
     }

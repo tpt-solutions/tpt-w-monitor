@@ -89,6 +89,11 @@ impl<M: SystemMonitor> MonitorState<M> {
         self.sampler.system_cpu_history().iter().copied().collect()
     }
 
+    /// Recent memory-in-use samples as percent, oldest first, for the tray graph.
+    pub fn memory_history(&self) -> Vec<f32> {
+        self.sampler.system_memory_history().iter().map(|fraction| fraction * 100.0).collect()
+    }
+
     /// The `n` busiest processes in the latest frame, as (name, CPU percent).
     pub fn top_processes(&self, n: usize) -> Vec<(String, f32)> {
         let Some(frame) = self.latest.as_ref() else {
@@ -127,6 +132,16 @@ impl<M: SystemMonitor> MonitorState<M> {
             }
         }
         execute_action(self.sampler.monitor_mut(), pid, action, confirmed)
+    }
+
+    /// Executables whose suggestions are dismissed.
+    pub fn dismissed_suggestions(&self) -> Vec<String> {
+        self.suggestions.dismissed_names()
+    }
+
+    /// Executables that suggestions and disruptive actions never touch.
+    pub fn protected_processes(&self) -> Vec<String> {
+        self.suggestions.critical_list().names()
     }
 
     /// Stops suggestions for an executable.

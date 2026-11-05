@@ -104,6 +104,13 @@ impl CriticalList {
         ])
     }
 
+    /// Every name on the list, lowercase and sorted, for display.
+    pub fn names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.names.iter().cloned().collect();
+        names.sort();
+        names
+    }
+
     /// Whether `process` (a bare name or a full path) is on the list.
     pub fn is_critical(&self, process: &str) -> bool {
         let file = process.rsplit(['/', '\\']).next().unwrap_or(process);
@@ -159,6 +166,13 @@ impl SuggestionEngine {
     /// executable name so the setting survives PID reuse and restarts of the app.
     pub fn dismiss(&mut self, process_name: &str) {
         self.dismissed.insert(process_name.to_ascii_lowercase());
+    }
+
+    /// Executable names whose suggestions are dismissed, sorted.
+    pub fn dismissed_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.dismissed.iter().cloned().collect();
+        names.sort();
+        names
     }
 
     /// Re-enables suggestions for `process_name`.
