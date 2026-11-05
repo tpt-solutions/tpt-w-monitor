@@ -5,7 +5,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { ActionDto, FrameDto, OverlayDto, ViewDto } from './types';
+import type { ActionDto, FrameDto, OverlayDto, SuggestionSettingsDto, ViewDto } from './types';
 import type { WidgetKind } from './layout';
 
 /** Sent by an overlay when the user docks it back into the dashboard. */
@@ -34,6 +34,7 @@ export const ipc = {
   ) => invoke<void>('update_overlay', { id, ...geometry }),
   setClickThrough: (id: string, enabled: boolean) => invoke<void>('set_click_through', { id, enabled }),
   listOverlays: () => invoke<OverlayDto[]>('list_overlays'),
+  getSuggestionSettings: () => invoke<SuggestionSettingsDto>('get_suggestion_settings'),
 };
 
 /** Subscribes to pushed frames. Resolves to the unsubscribe function. */

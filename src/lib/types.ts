@@ -85,3 +85,9 @@ export interface OverlayDto {
   opacity: number;
   clickThrough: boolean;
 }
+
+/** Suggestion settings: dismissed executables, and protected system processes. */
+export interface SuggestionSettingsDto {
+  dismissed: string[];
+  protected: string[];
+}

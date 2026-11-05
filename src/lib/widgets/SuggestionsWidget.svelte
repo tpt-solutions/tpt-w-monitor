@@ -5,16 +5,27 @@
   // Suggest-only: nothing runs until the user clicks Apply. Kill is never offered
   // here, and the backend re-checks every action.
 
+  import { onMount } from 'svelte';
   import WidgetCard from './WidgetCard.svelte';
   import type { WidgetProps } from './props';
   import { live, notify } from '../live.svelte';
   import { ipc } from '../ipc';
   import { runAction } from '../actions';
   import { formatPercent } from '../format';
+  import type { SuggestionSettingsDto } from '../types';
 
   let { onRemove, onPopOut }: WidgetProps = $props();
 
   const suggestions = $derived(live.frame?.suggestions ?? []);
+  let settings = $state<SuggestionSettingsDto | null>(null);
+
+  async function refresh() {
+    try {
+      settings = await ipc.getSuggestionSettings();
+    } catch (error) {
+      notify(`Could not load suggestion settings: ${String(error)}`);
+    }
+  }
 
   async function apply(pid: number, action: (typeof suggestions)[number]['recommendedAction']) {
     await runAction(pid, action, false);
@@ -23,10 +34,24 @@
   async function dismiss(name: string) {
     try {
       await ipc.dismissSuggestion(name);
+      await refresh();
     } catch (error) {
       notify(`Could not dismiss: ${String(error)}`);
     }
   }
+
+  async function restore(name: string) {
+    try {
+      await ipc.restoreSuggestion(name);
+      await refresh();
+    } catch (error) {
+      notify(`Could not restore: ${String(error)}`);
+    }
+  }
+
+  onMount(() => {
+    void refresh();
+  });
 </script>
 
 <WidgetCard title="Suggestions" {onRemove} {onPopOut}>
@@ -46,4 +71,53 @@
       {/each}
     </ul>
   {/if}
+
+  <details class="settings">
+    <summary>Dismissed ({settings?.dismissed.length ?? 0})</summary>
+    {#if settings && settings.dismissed.length > 0}
+      <ul class="readings">
+        {#each settings.dismissed as name (name)}
+          <li>
+            <span>{name}</span>
+            <button type="button" onclick={() => restore(name)} aria-label="Suggest {name} again">Restore</button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="muted small">No suggestions are dismissed.</p>
+    {/if}
+  </details>
+
+  <details class="settings">
+    <summary>Protected processes ({settings?.protected.length ?? 0})</summary>
+    <p class="muted small">Never suggested for suspension or priority changes, and refused for kill or suspend even when you ask.</p>
+    {#if settings}
+      <ul class="protected">
+        {#each settings.protected as name (name)}
+          <li>{name}</li>
+        {/each}
+      </ul>
+    {/if}
+  </details>
 </WidgetCard>
+
+<style>
+  .settings {
+    margin-top: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+  }
+
+  summary {
+    cursor: pointer;
+    color: var(--muted);
+  }
+
+  .protected {
+    columns: 2;
+    margin: 4px 0 0;
+    padding-left: 18px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+  }
+</style>
