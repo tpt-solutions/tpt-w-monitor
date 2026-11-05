@@ -75,6 +75,11 @@ export interface ViewDto {
 }
 
 /** An open desktop overlay, as the backend saves it. */
+export interface CapabilitiesDto {
+  elevated: boolean;
+  platform: 'windows' | 'linux';
+}
+
 export interface OverlayDto {
   id: string;
   kind: string;

@@ -15,6 +15,8 @@
     type WidgetKind,
   } from './lib/layout';
   import { applyTheme, loadTheme, saveTheme, type ThemeChoice } from './lib/theme';
+  import Onboarding from './lib/widgets/Onboarding.svelte';
+  import type { CapabilitiesDto } from './lib/types';
 
   /** Layout restored on start and saved after every change. */
   const AUTOSAVE = 'last-session';
@@ -28,6 +30,7 @@
   let layoutName = $state('my-layout');
   let savedLayouts = $state<string[]>([]);
   let selectedLayout = $state('');
+  let capabilities = $state<CapabilitiesDto | null>(null);
   let lastUpdate = $state('');
 
   $effect(() => {
@@ -109,6 +112,12 @@
 
   onMount(() => {
     let disposed = false;
+    void ipc
+      .getCapabilities()
+      .then((c) => {
+        capabilities = c;
+      })
+      .catch(() => undefined);
     let unlisten: (() => void) | undefined;
     let unlistenDock: (() => void) | undefined;
 
@@ -224,6 +233,10 @@
     </label>
     <button type="button" onclick={loadNamed} disabled={!selectedLayout}>Load</button>
   </section>
+
+  {#if capabilities}
+    <Onboarding {capabilities} />
+  {/if}
 
   {#if live.notice}
     <div class="banner" role="status">{live.notice}</div>
