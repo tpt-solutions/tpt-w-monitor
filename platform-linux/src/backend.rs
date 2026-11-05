@@ -30,6 +30,8 @@ pub struct LinuxMonitor {
     last_sample: Option<Instant>,
     prev_processes: HashMap<u32, PrevProcess>,
     prev_cpu: Option<parse::CpuTimes>,
+    /// Last whole-machine `(received, transmitted)` totals and when they were read.
+    prev_net: Option<((u64, u64), Instant)>,
 }
 
 impl Default for LinuxMonitor {
@@ -45,7 +47,14 @@ impl LinuxMonitor {
         let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as u64;
         // SAFETY: as above, for the online-processor query.
         let cores = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) }.max(1) as usize;
-        Self { cores, clk_tck, last_sample: None, prev_processes: HashMap::new(), prev_cpu: None }
+        Self {
+            cores,
+            clk_tck,
+            last_sample: None,
+            prev_processes: HashMap::new(),
+            prev_cpu: None,
+            prev_net: None,
+        }
     }
 
     /// Logical processor count used for CPU scaling.
@@ -156,6 +165,11 @@ impl SystemMonitor for LinuxMonitor {
         let times = parse::parse_proc_stat_cpu(&stat)
             .ok_or_else(|| MonitorError::Os("unparseable /proc/stat".into()))?;
 
+        let now = fs::read_to_string("/proc/net/dev")
+            .ok()
+            .and_then(|text| parse::parse_net_dev(&text))
+            .map(|totals| (totals, Instant::now()));
+
         let mut system = SystemMetrics {
             memory_total_bytes: total,
             memory_used_bytes: total.saturating_sub(available),
@@ -174,6 +188,16 @@ impl SystemMonitor for LinuxMonitor {
         } else {
             system.cpu_per_core_percent = vec![0.0; times.per_core.len()];
         }
+        if let (Some((totals, at)), Some((previous, previous_at))) = (now, self.prev_net) {
+            let secs = at.duration_since(previous_at).as_secs_f64();
+            if secs > 0.0 {
+                system.net_down_bytes_per_sec =
+                    Some((totals.0.saturating_sub(previous.0) as f64 / secs) as u64);
+                system.net_up_bytes_per_sec =
+                    Some((totals.1.saturating_sub(previous.1) as f64 / secs) as u64);
+            }
+        }
+        self.prev_net = now;
         self.prev_cpu = Some(times);
         Ok(system)
     }

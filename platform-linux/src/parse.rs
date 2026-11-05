@@ -139,6 +139,31 @@ pub fn parse_meminfo(text: &str) -> Option<(u64, u64)> {
     Some((total?, available?))
 }
 
+/// Whole-machine `(received, transmitted)` bytes from `/proc/net/dev`, excluding loopback.
+///
+/// Each interface line is `name: rx_bytes rx_packets ... (8 receive fields) tx_bytes ...`,
+/// so the transmit byte count is the ninth value after the colon. Returns `None` when
+/// no interface line parses.
+pub fn parse_net_dev(text: &str) -> Option<(u64, u64)> {
+    let mut total = None::<(u64, u64)>;
+    for line in text.lines().skip(2) {
+        let Some((name, rest)) = line.split_once(':') else {
+            continue;
+        };
+        if name.trim() == "lo" {
+            continue;
+        }
+        let values: Vec<u64> =
+            rest.split_whitespace().map(|v| v.parse().ok()).collect::<Option<_>>()?;
+        if values.len() < 9 {
+            return None;
+        }
+        let (rx, tx) = total.unwrap_or((0, 0));
+        total = Some((rx.saturating_add(values[0]), tx.saturating_add(values[8])));
+    }
+    total
+}
+
 /// Parses a single sysfs integer value (hwmon files end with a newline).
 pub fn parse_sysfs_int(text: &str) -> Option<i64> {
     text.trim().parse().ok()
@@ -210,6 +235,13 @@ mod tests {
         let text = "MemTotal:       16000000 kB\nMemFree:  1 kB\nMemAvailable:    4000000 kB\n";
         assert_eq!(parse_meminfo(text), Some((16_000_000 * 1024, 4_000_000 * 1024)));
         assert_eq!(parse_meminfo("MemTotal: 1 kB\n"), None);
+    }
+
+    #[test]
+    fn net_dev_sums_interfaces_except_loopback() {
+        let text = "Inter-|   Receive\n face |bytes packets\n    lo:  9999 1 0 0 0 0 0 0  9999 1 0 0 0 0 0 0\n  eth0: 1000 2 0 0 0 0 0 0  500 3 0 0 0 0 0 0\n wlan0: 200 1 0 0 0 0 0 0  100 1 0 0 0 0 0 0\n";
+        assert_eq!(parse_net_dev(text), Some((1200, 600)));
+        assert_eq!(parse_net_dev("header\nonly\n"), None);
     }
 
     #[test]

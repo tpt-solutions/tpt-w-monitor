@@ -52,6 +52,8 @@ pub struct WindowsMonitor {
     net: net::NetTracker,
     /// Connections for which byte-counter collection is already switched on.
     estats_enabled: HashSet<net::TcpRow>,
+    /// Last whole-machine interface totals and when they were read.
+    prev_interfaces: Option<((u64, u64), Instant)>,
     /// GPU counters, if this machine exposes them.
     gpu: Option<sys::GpuCounters>,
 }
@@ -72,6 +74,7 @@ impl WindowsMonitor {
             prev_cpu: None,
             net: net::NetTracker::new(),
             estats_enabled: HashSet::new(),
+            prev_interfaces: None,
             gpu: sys::open_gpu_counters().ok(),
         }
     }
@@ -190,11 +193,18 @@ impl SystemMonitor for WindowsMonitor {
         let mut system = SystemMetrics {
             memory_total_bytes: total,
             memory_used_bytes: total.saturating_sub(available),
-            // Network, disk-per-drive and GPU are filled in by later phases.
-            net_up_bytes_per_sec: None,
-            net_down_bytes_per_sec: None,
+            // Per-drive and GPU breakdowns are filled in by later phases.
             ..SystemMetrics::default()
         };
+        let now = sys::interface_octets()
+            .ok()
+            .map(|rows| (net::sum_interface_octets(&rows), Instant::now()));
+        if let (Some((totals, at)), Some((previous, previous_at))) = (now, self.prev_interfaces) {
+            let rates = net::rate_between(previous, totals, at.duration_since(previous_at));
+            system.net_up_bytes_per_sec = Some(rates.up);
+            system.net_down_bytes_per_sec = Some(rates.down);
+        }
+        self.prev_interfaces = now;
 
         if let Some(prev) = &self.prev_cpu {
             let mut sum_total = 0u64;

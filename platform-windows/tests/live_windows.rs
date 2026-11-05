@@ -191,3 +191,14 @@ fn elevation_check_agrees_with_net_session() {
     // the token check.
     assert_eq!(tpt_monitor_platform_windows::is_elevated(), is_elevated());
 }
+
+#[test]
+fn whole_machine_network_totals_appear_from_the_second_sample() {
+    let mut monitor = WindowsMonitor::new();
+    let first = monitor.sample_system().expect("first system sample");
+    assert_eq!(first.net_down_bytes_per_sec, None, "no baseline yet");
+    std::thread::sleep(Duration::from_millis(200));
+    let second = monitor.sample_system().expect("second system sample");
+    assert!(second.net_up_bytes_per_sec.is_some());
+    assert!(second.net_down_bytes_per_sec.is_some());
+}

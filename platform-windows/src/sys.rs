@@ -17,9 +17,9 @@ use windows_sys::Win32::Foundation::{
     HWND, INVALID_HANDLE_VALUE, LPARAM,
 };
 use windows_sys::Win32::NetworkManagement::IpHelper::{
-    GetExtendedTcpTable, GetPerTcpConnectionEStats, MIB_TCPROW_LH, SetPerTcpConnectionEStats,
-    TCP_ESTATS_DATA_ROD_v0, TCP_ESTATS_DATA_RW_v0, TCP_TABLE_OWNER_PID_ALL,
-    TcpConnectionEstatsData,
+    FreeMibTable, GetExtendedTcpTable, GetIfTable2, GetPerTcpConnectionEStats, MIB_IF_ROW2,
+    MIB_IF_TABLE2, MIB_TCPROW_LH, SetPerTcpConnectionEStats, TCP_ESTATS_DATA_ROD_v0,
+    TCP_ESTATS_DATA_RW_v0, TCP_TABLE_OWNER_PID_ALL, TcpConnectionEstatsData,
 };
 use windows_sys::Win32::Networking::WinSock::AF_INET;
 use windows_sys::Win32::Security::{
@@ -642,4 +642,29 @@ pub fn is_elevated() -> bool {
         CloseHandle(token);
     }
     ok != 0 && elevation.TokenIsElevated != 0
+}
+
+/// Cumulative `(interface type, in octets, out octets)` for every network interface.
+pub fn interface_octets() -> Result<Vec<(u32, u64, u64)>, MonitorError> {
+    let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+    // SAFETY: on success GetIfTable2 allocates the table and stores its pointer in `table`.
+    let rc = unsafe { GetIfTable2(&mut table) };
+    if rc != 0 || table.is_null() {
+        return Err(MonitorError::Os(format!("GetIfTable2: {rc}")));
+    }
+    // SAFETY: the table holds NumEntries rows starting at `Table`; they stay valid until
+    // FreeMibTable, which runs below after the rows are copied out.
+    let rows: Vec<(u32, u64, u64)> = unsafe {
+        let count = (*table).NumEntries as usize;
+        let first = std::ptr::addr_of!((*table).Table).cast::<MIB_IF_ROW2>();
+        std::slice::from_raw_parts(first, count)
+            .iter()
+            .map(|row| (row.Type, row.InOctets, row.OutOctets))
+            .collect()
+    };
+    // SAFETY: `table` came from GetIfTable2 and is freed exactly once.
+    unsafe {
+        FreeMibTable(table.cast());
+    }
+    Ok(rows)
 }

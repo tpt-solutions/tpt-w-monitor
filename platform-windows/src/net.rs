@@ -237,3 +237,49 @@ mod tests {
         assert!(rates.is_empty());
     }
 }
+
+/// `IF_TYPE_SOFTWARE_LOOPBACK`: loopback traffic does not leave the machine.
+pub const IF_TYPE_SOFTWARE_LOOPBACK: u32 = 24;
+
+/// Sums cumulative `(interface type, in octets, out octets)` for every interface except
+/// software loopback.
+pub fn sum_interface_octets(rows: &[(u32, u64, u64)]) -> (u64, u64) {
+    rows.iter().filter(|(kind, _, _)| *kind != IF_TYPE_SOFTWARE_LOOPBACK).fold(
+        (0u64, 0u64),
+        |(total_in, total_out), (_, i, o)| {
+            (total_in.saturating_add(*i), total_out.saturating_add(*o))
+        },
+    )
+}
+
+/// Rates between two cumulative `(in, out)` totals taken `elapsed` apart. Counters that
+/// move backwards count as zero.
+pub fn rate_between(previous: (u64, u64), now: (u64, u64), elapsed: Duration) -> NetRates {
+    let secs = elapsed.as_secs_f64();
+    if secs <= 0.0 {
+        return NetRates::default();
+    }
+    NetRates {
+        up: ((now.1.saturating_sub(previous.1)) as f64 / secs) as u64,
+        down: ((now.0.saturating_sub(previous.0)) as f64 / secs) as u64,
+    }
+}
+
+#[cfg(test)]
+mod interface_tests {
+    use super::*;
+
+    #[test]
+    fn loopback_is_excluded_from_totals() {
+        let rows = [(6, 100, 50), (IF_TYPE_SOFTWARE_LOOPBACK, 9_999, 9_999), (71, 25, 5)];
+        assert_eq!(sum_interface_octets(&rows), (125, 55));
+    }
+
+    #[test]
+    fn rates_come_from_total_deltas() {
+        let r = rate_between((1_000, 500), (3_000, 1_500), Duration::from_secs(2));
+        assert_eq!(r, NetRates { up: 500, down: 1_000 });
+        assert_eq!(rate_between((5, 5), (1, 1), Duration::from_secs(1)), NetRates::default());
+        assert_eq!(rate_between((0, 0), (9, 9), Duration::ZERO), NetRates::default());
+    }
+}
