@@ -85,8 +85,8 @@ Decisions locked in for this roadmap:
 ## Phase 2 — Windows Backend
 - [x] Process enumeration + per-process CPU/RAM via `NtQuerySystemInformation`(`SystemProcessInformation`) or `Toolhelp32Snapshot` + `GetProcessTimes`
 - [x] Per-process disk I/O via `GetProcessIoCounters`
-- [ ] Per-process network attribution via IP Helper API (`GetExtendedTcpTable`/`GetExtendedUdpTable` owning-PID mapping) + periodic byte-counter deltas
-- [ ] Per-process GPU engine utilization + VRAM via PDH `GPU Engine`/`GPU Process Memory` counter sets (DXGI-backed, vendor-agnostic, Win10 1803+)
+- [ ] Per-process network attribution via IP Helper API (`GetExtendedTcpTable`/`GetExtendedUdpTable` owning-PID mapping) + periodic byte-counter deltas (partial: TCP only, per-connection byte counters via ESTATS; needs an elevated run, which is not yet verified live; UDP has no byte counters and is not attributed)
+- [x] Per-process GPU engine utilization + VRAM via PDH `GPU Engine`/`GPU Process Memory` counter sets (DXGI-backed, vendor-agnostic, Win10 1803+) (verified on this machine: 278 processes report engine utilisation; the busiest engine per process is used)
 - [x] Process actions: kill (`TerminateProcess`), suspend/resume (`NtSuspendProcess`/`NtResumeProcess`), priority (`SetPriorityClass`), affinity (`SetProcessAffinityMask`) (live-tested against a child process: kill, suspend, resume, priority)
 - [ ] UAC elevation manifest (`requireAdministrator`) wired into the Tauri/MSVC build; verify unelevated-launch fallback messaging (manifest embedded via `src-tauri/build.rs`; unelevated-launch messaging still pending)
 - [ ] Unit/integration tests against a mockable Win32 boundary (CI-safe) (partial: calc unit tests and live child-process tests; no mockable Win32 layer yet)
@@ -127,9 +127,9 @@ Decisions locked in for this roadmap:
 - [x] Widget: process list table (sortable/filterable/grouped, live CPU/GPU/RAM/Disk/Net columns + sparklines) (sortable and filterable; grouping, per-row sparklines and GPU/Net columns still to come)
 - [x] Widget: system CPU graph (total + per-core toggle) (total history graph; per-core shown as current bars, not history)
 - [x] Widget: RAM graph
-- [ ] Widget: GPU engine + VRAM graph (list of GPU-reporting processes only; no data source yet)
+- [ ] Widget: GPU engine + VRAM graph (per-process GPU list is live; no graph yet)
 - [ ] Widget: disk I/O graph (per-drive) (busiest processes by I/O; per-drive totals not yet provided)
-- [ ] Widget: network I/O graph (up/down) (shows unavailable state; no data source yet)
+- [ ] Widget: network I/O graph (up/down) (busiest TCP processes are live; no graph yet, and whole-machine totals are still missing)
 - [x] Widget: temperature/fan gauges (Phase 4 data, "unavailable" state handled in UI) (shown as lists, not gauges)
 - [x] Widget palette/add-widget UI
 
