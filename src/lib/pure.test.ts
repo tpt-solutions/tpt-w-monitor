@@ -11,7 +11,7 @@ import {
   parseLayout,
   serializeLayout,
 } from './layout';
-import { filterProcesses, sortProcesses } from './processes';
+import { filterProcesses, groupByName, sortProcesses } from './processes';
 import { applyTheme, loadTheme, saveTheme } from './theme';
 import type { ProcessDto } from './types';
 
@@ -162,5 +162,30 @@ describe('theme', () => {
     expect(root.dataset.theme).toBe('dark');
     applyTheme('system', root);
     expect(root.dataset.theme).toBeUndefined();
+  });
+});
+
+describe('groupByName', () => {
+  it('merges processes with the same executable name and totals their metrics', () => {
+    const list = [
+      { ...proc(10, 'Chrome.exe', 5, 100), gpuEnginePercent: 10, vramBytes: 1000 },
+      { ...proc(4, 'chrome.exe', 20, 300), gpuEnginePercent: 30, vramBytes: null },
+      proc(7, 'notepad.exe', 1, 50),
+    ];
+    const groups = groupByName(list);
+    expect(groups.map((g) => g.name)).toEqual(['Chrome.exe', 'notepad.exe']);
+    const chrome = groups[0];
+    expect(chrome.pids).toEqual([4, 10]);
+    expect(chrome.cpuPercent).toBe(25);
+    expect(chrome.workingSetBytes).toBe(400);
+    expect(chrome.gpuEnginePercent).toBe(40);
+    expect(chrome.vramBytes).toBe(1000);
+  });
+
+  it('keeps unavailable metrics unavailable instead of totalling them as zero', () => {
+    const groups = groupByName([proc(1, 'a.exe', 1), proc(2, 'a.exe', 2)]);
+    expect(groups[0].netBytesPerSec).toBeNull();
+    expect(groups[0].gpuEnginePercent).toBeNull();
+    expect(groups[0].diskBytesPerSec).toBeNull();
   });
 });

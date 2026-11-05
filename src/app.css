@@ -334,6 +334,16 @@ td.name {
   text-align: right;
 }
 
+.trend {
+  width: 90px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.trend .spark {
+  margin: 0;
+}
+
 td.actions {
   display: flex;
   gap: 4px;

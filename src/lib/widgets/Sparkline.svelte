@@ -8,12 +8,12 @@
     values,
     max = 100,
     label = 'History graph',
-  }: { values: number[]; max?: number; label?: string } = $props();
+    height = 48,
+  }: { values: number[]; max?: number; label?: string; height?: number } = $props();
 
-  const HEIGHT = 48;
-  const points = $derived(toPolylinePoints(values, 100, HEIGHT, max));
+  const points = $derived(toPolylinePoints(values, 100, height, max));
 </script>
 
-<svg class="spark" viewBox="0 0 100 {HEIGHT}" preserveAspectRatio="none" role="img" aria-label={label}>
+<svg class="spark" viewBox="0 0 100 {height}" style="height: {height}px" preserveAspectRatio="none" role="img" aria-label={label}>
   <polyline {points} fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" />
 </svg>
