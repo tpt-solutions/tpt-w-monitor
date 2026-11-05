@@ -155,7 +155,7 @@ Decisions locked in for this roadmap:
 - [ ] Profile the sampling loop itself (CPU/RAM footprint) — the monitor must not become the thing worth suspending
 - [ ] Adaptive sampling interval tuning (unfocused/minimized dashboard, no open overlays)
 - [ ] App icon, branding assets (TPT Solutions)
-- [ ] First-run onboarding (explain elevation prompt, note sensor availability may vary by hardware)
+- [x] First-run onboarding (explain elevation prompt, note sensor availability may vary by hardware) (a card explains this run from the backend report: elevated or not; dismissal is remembered; not yet seen in a running app)
 - [ ] Crash reporting / local error logging (opt-in only)
 - [ ] Accessibility pass (keyboard navigation, screen reader labels on dashboard + suggestions panel)
 
