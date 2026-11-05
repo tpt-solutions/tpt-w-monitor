@@ -23,6 +23,8 @@ pub struct MockMonitor {
     pub fail_actions_with: Option<MonitorError>,
     /// Value returned by [`SystemMonitor::is_available`].
     pub available: bool,
+    /// Value returned by [`SystemMonitor::user_idle_secs`].
+    pub idle_secs: Option<u64>,
 }
 
 impl MockMonitor {
@@ -35,6 +37,10 @@ impl MockMonitor {
 impl SystemMonitor for MockMonitor {
     fn is_available(&self) -> bool {
         self.available
+    }
+
+    fn user_idle_secs(&self) -> Option<u64> {
+        self.idle_secs
     }
 
     fn sample_processes(&mut self) -> Result<Vec<ProcessMetrics>> {

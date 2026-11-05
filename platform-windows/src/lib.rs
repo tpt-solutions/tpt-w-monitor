@@ -103,6 +103,10 @@ impl WindowsMonitor {
 }
 
 impl SystemMonitor for WindowsMonitor {
+    fn user_idle_secs(&self) -> Option<u64> {
+        sys::user_idle_seconds()
+    }
+
     fn sample_processes(&mut self) -> Result<Vec<ProcessMetrics>> {
         let now = Instant::now();
         let elapsed = self.last_sample.map(|t| now.duration_since(t));

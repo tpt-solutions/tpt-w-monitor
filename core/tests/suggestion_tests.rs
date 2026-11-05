@@ -161,3 +161,21 @@ fn critical_names_are_listed_sorted_and_lowercase() {
     let list = CriticalList::new(["Services.exe", "csrss.exe"]);
     assert_eq!(list.names(), vec!["csrss.exe", "services.exe"]);
 }
+
+#[test]
+fn foreground_process_is_suggested_while_the_user_is_idle() {
+    let mut e = engine();
+    e.set_user_idle(true);
+    feed(&mut e, 60, "render.exe", &[80.0, 80.0, 80.0, 80.0], true);
+    let s = e.suggestions();
+    assert_eq!(s.len(), 1);
+    assert_eq!(s[0].process_name, "render.exe");
+}
+
+#[test]
+fn foreground_process_is_not_suggested_while_the_user_is_active() {
+    let mut e = engine();
+    assert!(!e.user_idle());
+    feed(&mut e, 61, "render.exe", &[80.0, 80.0, 80.0, 80.0], true);
+    assert!(e.suggestions().is_empty());
+}

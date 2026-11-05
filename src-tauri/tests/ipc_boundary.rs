@@ -9,7 +9,7 @@ use tpt_monitor_core::mock::{MockMonitor, MockSensors};
 use tpt_monitor_core::{
     CriticalList, MonitorError, Pid, Priority, ProcessAction, ProcessMetrics, ViewState,
 };
-use tpt_monitor_tauri::state::MonitorState;
+use tpt_monitor_tauri::state::{MonitorState, USER_IDLE_SECS};
 
 fn proc(pid: u32, name: &str, cpu: f32, visible: bool) -> ProcessMetrics {
     let mut p = ProcessMetrics::new(Pid(pid), name);
@@ -124,4 +124,15 @@ fn view_state_changes_the_sampling_interval() {
     assert_eq!(s.next_interval(), Duration::from_secs(1));
     s.set_view_state(ViewState::default());
     assert_eq!(s.next_interval(), Duration::from_secs(8));
+}
+
+#[test]
+fn busy_visible_process_is_suggested_only_after_the_user_goes_idle() {
+    let mut s = state_with(vec![proc(300, "encoder.exe", 80.0, true)]);
+    s.monitor_mut().idle_secs = Some(10);
+    for _ in 0..30 {
+        assert!(s.tick().unwrap().suggestions.is_empty(), "active user: no suggestion");
+    }
+    s.monitor_mut().idle_secs = Some(USER_IDLE_SECS);
+    assert_eq!(s.tick().unwrap().suggestions.len(), 1);
 }

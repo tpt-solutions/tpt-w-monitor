@@ -19,6 +19,12 @@ pub trait SystemMonitor {
         true
     }
 
+    /// Seconds since the user last touched the keyboard or mouse, if the platform can
+    /// tell. `None` means unknown, and suggestions then treat the user as active.
+    fn user_idle_secs(&self) -> Option<u64> {
+        None
+    }
+
     /// Samples metrics for every visible process.
     fn sample_processes(&mut self) -> Result<Vec<ProcessMetrics>>;
 

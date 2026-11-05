@@ -18,6 +18,9 @@ use tpt_monitor_core::{
     TemperatureReading, ViewState, execute_action,
 };
 
+/// Seconds without input after which the user counts as idle for suggestions.
+pub const USER_IDLE_SECS: u64 = 300;
+
 /// Samples kept per series for the live graphs.
 pub const HISTORY_SAMPLES: usize = 120;
 
@@ -71,6 +74,9 @@ impl<M: SystemMonitor> MonitorState<M> {
     pub fn tick(&mut self) -> Result<&Frame> {
         let snapshot = self.sampler.sample()?;
         self.suggestions.observe(&snapshot.processes);
+        let idle =
+            self.sampler.monitor().user_idle_secs().is_some_and(|secs| secs >= USER_IDLE_SECS);
+        self.suggestions.set_user_idle(idle);
         self.known_pids = snapshot.processes.iter().map(|p| p.pid).collect();
         let suggestions = self.suggestions.suggestions();
         let sensors =
@@ -82,6 +88,11 @@ impl<M: SystemMonitor> MonitorState<M> {
     /// The most recent frame, if any sample has been taken.
     pub fn latest(&self) -> Option<&Frame> {
         self.latest.as_ref()
+    }
+
+    /// Mutable access to the backend, for diagnostics and tests. Never exposed over IPC.
+    pub fn monitor_mut(&mut self) -> &mut M {
+        self.sampler.monitor_mut()
     }
 
     /// Recent system CPU samples, oldest first, for the tray graph.

@@ -33,6 +33,7 @@ use windows_sys::Win32::System::Performance::{
 use windows_sys::Win32::System::ProcessStatus::{
     K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX,
 };
+use windows_sys::Win32::System::SystemInformation::GetTickCount64;
 use windows_sys::Win32::System::SystemInformation::{
     GetSystemInfo, GlobalMemoryStatusEx, MEMORYSTATUSEX, SYSTEM_INFO,
 };
@@ -41,6 +42,7 @@ use windows_sys::Win32::System::Threading::{
     PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION, PROCESS_SUSPEND_RESUME,
     PROCESS_TERMINATE, PROCESS_VM_READ, SetPriorityClass, SetProcessAffinityMask, TerminateProcess,
 };
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowThreadProcessId, IsWindowVisible,
 };
@@ -594,4 +596,19 @@ fn wide_ptr_to_string(p: *const u16) -> String {
         }
         String::from_utf16_lossy(std::slice::from_raw_parts(p, len))
     }
+}
+
+/// Seconds since the last keyboard or mouse input, from `GetLastInputInfo`.
+pub fn user_idle_seconds() -> Option<u64> {
+    let mut info = LASTINPUTINFO { cbSize: size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
+    // SAFETY: `info` is a valid LASTINPUTINFO whose cbSize is set as the API requires.
+    if unsafe { GetLastInputInfo(&mut info) } == 0 {
+        return None;
+    }
+    // SAFETY: GetTickCount64 takes no arguments and has no preconditions.
+    let now = unsafe { GetTickCount64() };
+    // The input timestamp is a 32-bit tick count that wraps every 49.7 days, so the
+    // difference is taken in 32-bit arithmetic.
+    let elapsed_ms = (now as u32).wrapping_sub(info.dwTime);
+    Some(u64::from(elapsed_ms / 1000))
 }

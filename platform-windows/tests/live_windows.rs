@@ -175,3 +175,12 @@ fn gpu_counters_report_when_the_machine_has_them() {
     );
     eprintln!("GPU counters reported for {with_gpu} processes");
 }
+
+#[test]
+fn user_idle_time_is_reported() {
+    let monitor = WindowsMonitor::new();
+    let idle = monitor.user_idle_secs().expect("GetLastInputInfo should succeed");
+    // Input can be older than any reasonable session, but a wrapped counter would show
+    // as a value near 49 days. Anything under a day is plausible.
+    assert!(idle < 86_400, "implausible idle time: {idle}s");
+}

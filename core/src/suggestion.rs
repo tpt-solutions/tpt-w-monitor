@@ -132,12 +132,19 @@ pub struct SuggestionEngine {
     critical: CriticalList,
     dismissed: HashSet<String>,
     tracks: HashMap<Pid, Track>,
+    user_idle: bool,
 }
 
 impl SuggestionEngine {
     /// Creates an engine with no observations and no dismissals.
     pub fn new(config: SuggestionConfig, critical: CriticalList) -> Self {
-        Self { config, critical, dismissed: HashSet::new(), tracks: HashMap::new() }
+        Self {
+            config,
+            critical,
+            dismissed: HashSet::new(),
+            tracks: HashMap::new(),
+            user_idle: false,
+        }
     }
 
     /// Records one sample of process metrics. Tracks for exited processes are dropped.
@@ -160,6 +167,17 @@ impl SuggestionEngine {
             track.cpu.push(p.cpu_percent);
             track.background = !p.has_visible_window;
         }
+    }
+
+    /// Records whether the user has been idle long enough. While idle, a sustained busy
+    /// process is suggested even if it has a visible window.
+    pub fn set_user_idle(&mut self, idle: bool) {
+        self.user_idle = idle;
+    }
+
+    /// Whether the user is currently treated as idle.
+    pub fn user_idle(&self) -> bool {
+        self.user_idle
     }
 
     /// Stops suggesting for `process_name` ("don't suggest again"). Keyed by
@@ -203,7 +221,9 @@ impl SuggestionEngine {
             .tracks
             .iter()
             .filter_map(|(pid, track)| {
-                if track.cpu.len() < cfg.window_samples || !track.background {
+                // Qualifies when the process is in the background, or the user is idle.
+                let eligible = track.background || self.user_idle;
+                if track.cpu.len() < cfg.window_samples || !eligible {
                     return None;
                 }
                 if self.critical.is_critical(&track.name) || self.is_dismissed(&track.name) {
