@@ -150,6 +150,21 @@ impl<M: SystemMonitor> MonitorState<M> {
         self.suggestions.dismissed_names()
     }
 
+    /// Protects a process name the user chose. Returns whether it was added.
+    pub fn protect_process(&mut self, name: &str) -> bool {
+        self.suggestions.protect(name)
+    }
+
+    /// Removes a user-chosen protection. Built-in protections cannot be removed.
+    pub fn unprotect_process(&mut self, name: &str) -> bool {
+        self.suggestions.unprotect(name)
+    }
+
+    /// Names the user added to the protected list, for saving.
+    pub fn user_protected(&self) -> Vec<String> {
+        self.suggestions.critical_list().added_names()
+    }
+
     /// Executables that suggestions and disruptive actions never touch.
     pub fn protected_processes(&self) -> Vec<String> {
         self.suggestions.critical_list().names()

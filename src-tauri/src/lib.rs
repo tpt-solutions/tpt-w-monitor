@@ -9,6 +9,7 @@ pub mod commands;
 pub mod dto;
 pub mod layouts;
 pub mod overlays;
+pub mod protected;
 pub mod state;
 pub mod tray;
 
@@ -140,6 +141,8 @@ pub fn run() {
             commands::restore_suggestion,
             commands::get_suggestion_settings,
             commands::get_capabilities,
+            commands::add_protected,
+            commands::remove_protected,
             commands::save_layout,
             commands::load_layout,
             commands::list_layouts,
@@ -151,6 +154,14 @@ pub fn run() {
         ])
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
+            // User additions to the protected list apply before anything is sampled.
+            {
+                let state = app.state::<AppState>();
+                let mut guard = state.lock().unwrap_or_else(|p| p.into_inner());
+                for name in protected::load(&dir.join("protected.json")) {
+                    guard.protect_process(&name);
+                }
+            }
             let store = OverlayStore::load(dir.join("overlays.json"));
             let restore = store.list();
             app.manage(Mutex::new(store));

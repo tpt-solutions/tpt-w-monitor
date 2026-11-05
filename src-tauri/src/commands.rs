@@ -59,6 +59,7 @@ pub fn get_suggestion_settings(state: State<'_, AppState>) -> SuggestionSettings
     SuggestionSettingsDto {
         dismissed: guard.dismissed_suggestions(),
         protected: guard.protected_processes(),
+        user_protected: guard.user_protected(),
     }
 }
 
@@ -197,4 +198,43 @@ pub fn list_overlays(overlays: State<'_, OverlayState>) -> Vec<OverlayConfig> {
 #[tauri::command]
 pub fn get_capabilities() -> crate::dto::CapabilitiesDto {
     crate::dto::CapabilitiesDto { elevated: crate::platform_elevated(), platform: crate::PLATFORM }
+}
+
+fn protected_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    app.path().app_data_dir().map(|dir| dir.join("protected.json")).map_err(|e| e.to_string())
+}
+
+/// Adds a process name to the protected list. Only bare executable names are accepted.
+#[tauri::command]
+pub fn add_protected(
+    app: tauri::AppHandle,
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut guard = lock(&state);
+    if !guard.protect_process(&name) {
+        return Err(format!(
+            "'{name}' cannot be added: it is already protected or is not a bare executable name"
+        ));
+    }
+    let names = guard.user_protected();
+    drop(guard);
+    crate::protected::save(&protected_path(&app)?, &names)
+}
+
+/// Removes a name the user added. Built-in protections cannot be removed.
+#[tauri::command]
+pub fn remove_protected(
+    app: tauri::AppHandle,
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut guard = lock(&state);
+    if !guard.unprotect_process(&name) {
+        return Err(format!("'{name}' was not added by you, so it cannot be removed"));
+    }
+    let names = guard.user_protected();
+    drop(guard);
+    crate::protected::save(&protected_path(&app)?, &names)
 }

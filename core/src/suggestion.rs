@@ -71,7 +71,10 @@ impl Default for SuggestionConfig {
 /// Process names that must never be suggested for suspension or priority changes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CriticalList {
+    /// Built-in names. These cannot be removed through the API.
     names: HashSet<String>,
+    /// Names the user added. These can be removed again.
+    added: HashSet<String>,
 }
 
 impl CriticalList {
@@ -81,7 +84,10 @@ impl CriticalList {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        Self { names: names.into_iter().map(|n| n.as_ref().to_ascii_lowercase()).collect() }
+        Self {
+            names: names.into_iter().map(|n| n.as_ref().to_ascii_lowercase()).collect(),
+            added: HashSet::new(),
+        }
     }
 
     /// Default Windows list: session, logon, shell and security processes.
@@ -125,15 +131,44 @@ impl CriticalList {
 
     /// Every name on the list, lowercase and sorted, for display.
     pub fn names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self.names.iter().cloned().collect();
+        let mut names: Vec<String> = self.names.union(&self.added).cloned().collect();
         names.sort();
         names
+    }
+
+    /// Names the user added, lowercase and sorted.
+    pub fn added_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.added.iter().cloned().collect();
+        names.sort();
+        names
+    }
+
+    /// Adds a user-chosen protected name. Returns `false` when the name is empty, already
+    /// protected, or invalid. Names are bare executable names: no paths, no spaces.
+    pub fn add(&mut self, name: &str) -> bool {
+        let name = name.trim().to_ascii_lowercase();
+        let valid = !name.is_empty()
+            && name.len() <= 64
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-' || b == b'_');
+        if !valid || self.names.contains(&name) {
+            return false;
+        }
+        self.added.insert(name)
+    }
+
+    /// Removes a user-added name. Built-in names are never removed, so this returns `false`
+    /// for them.
+    pub fn remove_added(&mut self, name: &str) -> bool {
+        self.added.remove(&name.trim().to_ascii_lowercase())
     }
 
     /// Whether `process` (a bare name or a full path) is on the list.
     pub fn is_critical(&self, process: &str) -> bool {
         let file = process.rsplit(['/', '\\']).next().unwrap_or(process);
-        self.names.contains(&file.to_ascii_lowercase())
+        let file = file.to_ascii_lowercase();
+        self.names.contains(&file) || self.added.contains(&file)
     }
 }
 
@@ -198,6 +233,17 @@ impl SuggestionEngine {
             track.io.push(io);
             track.background = !p.has_visible_window;
         }
+    }
+
+    /// Protects a process name the user chose. Built-in names are already protected, and
+    /// invalid names are refused; the return value says whether anything changed.
+    pub fn protect(&mut self, process_name: &str) -> bool {
+        self.critical.add(process_name)
+    }
+
+    /// Removes a user-chosen protection. Built-in protections cannot be removed.
+    pub fn unprotect(&mut self, process_name: &str) -> bool {
+        self.critical.remove_added(process_name)
     }
 
     /// Records whether the user has been idle long enough. While idle, a sustained busy

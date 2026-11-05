@@ -171,8 +171,10 @@ pub enum PriorityDto {
 pub struct SuggestionSettingsDto {
     /// Executables whose suggestions were dismissed.
     pub dismissed: Vec<String>,
-    /// Protected system processes, lowercase.
+    /// Protected system processes, lowercase (built-in and user-added).
     pub protected: Vec<String>,
+    /// The subset the user added, which the user can remove.
+    pub user_protected: Vec<String>,
 }
 
 /// Dashboard visibility, sent by the frontend.

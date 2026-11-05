@@ -136,3 +136,14 @@ fn busy_visible_process_is_suggested_only_after_the_user_goes_idle() {
     s.monitor_mut().idle_secs = Some(USER_IDLE_SECS);
     assert_eq!(s.tick().unwrap().suggestions.len(), 1);
 }
+
+#[test]
+fn user_protected_process_is_refused_for_kill_even_when_confirmed() {
+    let mut s = state_with(vec![proc(400, "mine.exe", 1.0, true)]);
+    s.tick().unwrap();
+    assert!(s.protect_process("mine.exe"));
+    let err = s.apply_action(Pid(400), ProcessAction::Kill, true).unwrap_err();
+    assert!(matches!(err, MonitorError::InvalidAction(_)));
+    assert!(s.unprotect_process("mine.exe"));
+    assert!(s.apply_action(Pid(400), ProcessAction::Kill, true).is_ok());
+}

@@ -249,3 +249,36 @@ fn disk_suggestion_needs_the_user_away_or_the_app_in_the_background() {
     e.set_user_idle(true);
     assert_eq!(e.suggestions().len(), 1);
 }
+
+#[test]
+fn user_protection_can_be_added_and_removed_but_builtins_cannot() {
+    let mut list = CriticalList::windows_default();
+    assert!(list.add("MyService.exe"));
+    assert!(list.is_critical("C:\\tools\\myservice.exe"));
+    assert_eq!(list.added_names(), vec!["myservice.exe"]);
+    assert!(list.remove_added("myservice.exe"));
+    assert!(!list.is_critical("myservice.exe"));
+
+    assert!(!list.remove_added("csrss.exe"), "built-in names are not removable");
+    assert!(list.is_critical("csrss.exe"));
+    assert!(!list.add("csrss.exe"), "already protected by default");
+}
+
+#[test]
+fn invalid_protection_names_are_refused() {
+    let mut list = CriticalList::windows_default();
+    for bad in ["", "   ", "a b.exe", "..\\evil", "name/with/slash", "x".repeat(65).as_str()] {
+        assert!(!list.add(bad), "{bad:?} should be refused");
+    }
+    assert!(list.added_names().is_empty());
+}
+
+#[test]
+fn engine_protection_stops_suggestions_for_that_process() {
+    let mut e = engine();
+    assert!(e.protect("Miner.exe"));
+    feed(&mut e, 80, "miner.exe", &[60.0; 4], false);
+    assert!(e.suggestions().is_empty());
+    assert!(e.unprotect("miner.exe"));
+    assert_eq!(e.suggestions().len(), 1);
+}
