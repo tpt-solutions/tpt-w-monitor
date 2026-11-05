@@ -124,7 +124,7 @@ Decisions locked in for this roadmap:
 - [x] App shell (Svelte + Vite), light/dark theme
 - [x] `gridstack.js`-driven widget grid: add/remove/resize/rearrange (verified rendering in headless Edge; interactive drag and resize not yet exercised)
 - [x] Save/load named dashboard layouts (JSON persisted to disk) (stored by the backend in the app data folder; the last session autosaves)
-- [x] Widget: process list table (sortable/filterable/grouped, live CPU/GPU/RAM/Disk/Net columns + sparklines) (sortable and filterable; grouping, per-row sparklines and GPU/Net columns still to come)
+- [x] Widget: process list table (sortable/filterable/grouped, live CPU/GPU/RAM/Disk/Net columns + sparklines) (sortable, filterable, grouped by name, with a per-row CPU trend and network and GPU columns; not yet checked with live data in a browser)
 - [x] Widget: system CPU graph (total + per-core toggle) (total history graph; per-core shown as current bars, not history)
 - [x] Widget: RAM graph
 - [ ] Widget: GPU engine + VRAM graph (per-process GPU list is live; no graph yet)
