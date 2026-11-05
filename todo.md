@@ -109,7 +109,7 @@ Decisions locked in for this roadmap:
 ## Phase 5 — Process Actions & Smart Suggestions Engine
 - [x] Wire kill/suspend/resume/priority/affinity actions from Phase 2/3 behind the `SystemMonitor` trait, with confirmation-required flag for destructive actions
 - [x] Curated critical-process list (never-suggest: `csrss.exe`, `wininit.exe`, `services.exe`, `systemd`, `kthreadd`, etc. per-OS) enforced in the suggestion engine, not just the UI
-- [ ] Heuristic rules: sustained CPU/RAM/disk usage on a backgrounded (no visible/foreground window) or user-idle process over a rolling window (CPU rule done, including the user-idle condition on Windows via GetLastInputInfo with 5 minutes as idle; Linux has no idle source yet; RAM and disk rules not yet)
+- [ ] Heuristic rules: sustained CPU/RAM/disk usage on a backgrounded (no visible/foreground window) or user-idle process over a rolling window (CPU and disk rules done; the disk rule suggests suspend. Windows idle time comes from GetLastInputInfo, 5 minutes counts as idle; Linux has no idle source yet. RAM rule deferred: no reversible action frees memory)
 - [x] Suggestion model: rationale, affected process, recommended action, confidence; per-process "don't suggest again" override
 - [x] Suggestion engine unit tests (fixture process histories → expected suggestions, critical-list never triggers)
 
@@ -144,7 +144,7 @@ Decisions locked in for this roadmap:
 - [x] Suggestions feed/panel (sorted by impact), rationale display per suggestion
 - [ ] One-click apply, with an extra confirmation step for destructive actions (kill) (apply is one click; no destructive suggestions are generated yet, and the kill confirmation lives in the process table)
 - [x] Dismiss / "don't suggest again for this process" controls (dismiss and restore both work from the Suggestions widget)
-- [ ] Safe/critical process list viewer + user override management (view only for critical list; opt-out per suggestion rule) (read-only viewer is in the Suggestions widget; override management is not)
+- [ ] Safe/critical process list viewer + user override management (view only for critical list; opt-out per suggestion rule) (read-only viewer is in the Suggestions widget; override management is not) Recommended: user additions only (never removals), so the default protection cannot be weakened.
 
 ## Phase 10 — Archon Support (Design Only)
 - [x] `docs/archon-design.md`: design for querying `tpt-archon-kernel` built-in telemetry + capability scheduler directly for zero-overhead, poll-free per-app resource metrics
