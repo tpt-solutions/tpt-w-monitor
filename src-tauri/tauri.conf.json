@@ -34,6 +34,6 @@
     "publisher": "TPT Solutions",
     "copyright": "Copyright (c) 2026 TPT Solutions",
     "license": "MIT OR Apache-2.0",
-    "icon": ["icons/icon.ico"]
+    "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }

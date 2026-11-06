@@ -407,13 +407,16 @@ pub fn tcp_owner_table() -> Result<Vec<u8>, MonitorError> {
     Err(MonitorError::Os("TCP table kept growing".into()))
 }
 
+/// Rebuilds the IP Helper row for a connection. `MIB_TCPROW_LH` keeps ports in network
+/// byte order, while [`TcpRow`] holds them in host order, so they are swapped back here.
+/// Passing host-order ports makes every ESTATS call miss the connection.
 fn to_lh(row: &TcpRow) -> MIB_TCPROW_LH {
     let mut lh = MIB_TCPROW_LH::default();
     lh.Anonymous.dwState = row.state;
     lh.dwLocalAddr = row.local_addr;
-    lh.dwLocalPort = u32::from(row.local_port);
+    lh.dwLocalPort = u32::from(row.local_port.to_be());
     lh.dwRemoteAddr = row.remote_addr;
-    lh.dwRemotePort = u32::from(row.remote_port);
+    lh.dwRemotePort = u32::from(row.remote_port.to_be());
     lh
 }
 
@@ -683,4 +686,28 @@ pub fn image_file_name(pid: Pid) -> Option<String> {
     }
     let path = String::from_utf16_lossy(&buf[..len as usize]);
     path.rsplit(['\\', '/']).next().map(str::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::net::{STATE_ESTABLISHED, TcpRow};
+
+    #[test]
+    fn ports_go_back_to_network_order_for_ip_helper() {
+        // Host-order ports make every ESTATS call miss the connection, so the wire
+        // order must be restored here.
+        let row = TcpRow {
+            state: STATE_ESTABLISHED,
+            local_addr: 0x0100_007F,
+            local_port: 8080,
+            remote_addr: 0x0100_007F,
+            remote_port: 443,
+            pid: 1,
+        };
+        let lh = to_lh(&row);
+        assert_eq!(lh.dwLocalPort as u16, 8080u16.to_be());
+        assert_eq!(lh.dwRemotePort as u16, 443u16.to_be());
+        assert_eq!(u16::from_be(lh.dwLocalPort as u16), 8080);
+    }
 }
